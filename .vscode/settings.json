@@ -1,0 +1,6 @@
+{
+"files.exclude": {
+    "**/rv32i_types.sv": true,
+    "**/rv32i_types.v": true
+}
+}
