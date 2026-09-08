@@ -1,13 +1,7 @@
-typedef enum logic [1:0] {
-    IDLE,
-    START,
-    DATA,
-    STOP
-} State;
-
+import uart::*;
 
 module uart_rx #( //UART receiver module
-    parameter int CLK_FREQ = 50_000_000,
+    parameter int CLK_FREQ = 10_000_000,    // default 10 mhz
     parameter int BAUD_RATE = 9600,
     parameter int SAMPLING_RATE = 16
 )(
@@ -110,39 +104,6 @@ module uart_rx #( //UART receiver module
                     end
                 end
             endcase
-        end
-    end
-
-endmodule
-
-
-module baud_rate_gen #(
-    parameter int CLK_FREQ = 50_000_000,
-    parameter int BAUD_RATE = 9600,
-    parameter int SAMPLING_RATE = 16
-) (
-    input logic     clk,
-    input logic     rst_n,
-    output logic    tick
-);
-
-    localparam int MAX = ((CLK_FREQ)/(BAUD_RATE * SAMPLING_RATE));
-    localparam int WIDTH = $clog2(MAX);
-
-    logic [WIDTH - 1 : 0] counter;
-
-    always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            tick <= '0;
-            counter <= '0;
-        end else begin
-            if (counter >= (MAX - 1)) begin
-                tick <= 1'b1;
-                counter <= '0;
-            end else begin
-                tick <= '0;
-                counter <= counter + 1'b1;
-            end
         end
     end
 
