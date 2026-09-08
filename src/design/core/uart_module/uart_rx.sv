@@ -1,35 +1,18 @@
 import uart::*;
 
-module uart_rx #( //UART receiver module
-    parameter int CLK_FREQ = 10_000_000,    // default 10 mhz
-    parameter int BAUD_RATE = 9600,
+module uart_rx #(
     parameter int SAMPLING_RATE = 16
-)(
-    // clock and reset
+) (
+    // clock, reset, and tick
     input logic         clk,
     input logic         rst_n,
-
+    input logic         baud_tick,
     // input receiver
     input logic         rx,
-
     // data and validity output
     output logic [7:0]  rx_data,
     output logic        rx_valid
 );
-
-    //baud rate gen
-
-    logic baud_tick;
-
-    baud_rate_gen #(
-        .CLK_FREQ(CLK_FREQ),
-        .BAUD_RATE(BAUD_RATE),
-        .SAMPLING_RATE(SAMPLING_RATE)
-    ) u_baud_gen (
-        .clk(clk),
-        .rst_n(rst_n),
-        .tick(baud_tick)
-    );
 
     logic rx_meta;
     logic rx_sync;    // synchronize rx to avoid metastability

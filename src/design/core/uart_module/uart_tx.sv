@@ -1,12 +1,12 @@
 import uart::*;
 
 module uart_tx #(
-    parameter int CLK_FREQ = 10_000_000,    // default 10 mhz
-    parameter int BAUD_RATE = 9600
+    parameter SAMPLING_RATE = 16
 ) (
-    // clock and reset
+    // clock, reset, and tick
     input logic         clk,
     input logic         rst_n,
+    input logic         baud_tick,
     // validity
     input logic         tx_start,   // start transmission
     // data input
@@ -16,24 +16,27 @@ module uart_tx #(
     output logic        tx_busy     // high = currently transmitting a signal
 );
 
-    logic baud_tick;
-
-    baud_rate_gen #(
-        .CLK_FREQ         (CLK_FREQ),
-        .BAUD_RATE        (BAUD_RATE),
-        .SAMPLING_RATE    (1)
-    ) u_baud_rate_gen (
-        .clk              (clk),
-        .rst_n            (rst_n),
-        .tick             (baud_tick)
-    );
+    localparam int TICK_CNT_W = $clog2(SAMPLING_RATE);
 
     State cur_state;
     logic [2:0] data_cntr;
     logic [7:0] data_reg;
     logic start_pending;   // latched tx_start, waiting for a baud_tick boundary
+    logic [TICK_CNT_W-1:0] tick_cntr;      // counts oversample ticks within one bit
+    logic bit_done;        // pulses once per full bit period
 
-    assign tx_busy = (cur_state != IDLE) || start_pending;
+    assign bit_done = baud_tick && (tick_cntr == SAMPLING_RATE-1);
+    assign tx_busy  = (cur_state != IDLE) || start_pending;
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            tick_cntr <= '0;
+        end else if (cur_state == IDLE && !start_pending) begin
+            tick_cntr <= '0;   // stay reset while nothing is happening
+        end else if (baud_tick) begin
+            tick_cntr <= bit_done ? '0 : tick_cntr + 1'b1;
+        end
+    end
 
     always_ff @(posedge clk or negedge rst_n) begin
         if(!rst_n) begin
