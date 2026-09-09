@@ -1,7 +1,7 @@
 import rv32i::*;
 
-module cpu_mem_top #(
-    parameter BOOT_ROM_SIZE_BYTES = 4096,
+module mem #(
+    parameter ROM_SIZE_BYTES = 4096,
     parameter RAM_SIZE_BYTES = 131072
 ) (
     input logic clk,
@@ -23,7 +23,7 @@ module cpu_mem_top #(
     output logic data_not_found
 );
 
-    localparam Word RAM_BASE = BOOT_ROM_SIZE_BYTES;
+    localparam Word RAM_BASE = ROM_SIZE_BYTES;
 
     // instruction fetch
     logic sel_rom;
@@ -39,7 +39,7 @@ module cpu_mem_top #(
     logic rom_instr_fault, ram_instr_fault;
 
     boot_rom #(
-        .ROM_SIZE_BYTES(BOOT_ROM_SIZE_BYTES)
+        .ROM_SIZE_BYTES(ROM_SIZE_BYTES)
     ) u_boot_rom (
         .clk             (clk),
         .instr_addr      (instr_addr),            // rom's own bounds check rejects ram-range addresses

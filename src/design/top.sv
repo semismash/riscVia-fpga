@@ -50,26 +50,23 @@ module top(
         .meta_br_flush_count    (meta_br_flush_count)
     );
 
-    instr_mem u_instr_mem(
-        //input
+    mem #(
+        .ROM_SIZE_BYTES     (ROM_SIZE_BYTES),
+        .RAM_SIZE_BYTES     (RAM_SIZE_BYTES)
+    ) u_mem (
         .clk                (clk),
+        .rst_n              (rst_n),
+        // instruction fetch
         .instr_addr         (if_addr),
-        //output
         .instr_out          (instr),
-        .instr_not_found    (if_fault)
-    );
-    
-    data_mem u_data_mem(
-        .clk                (clk),
-
+        .instr_not_found    (if_fault),
+        // data access
         .data_addr          (data_addr),
         .req_bytes          (req_bytes),
-
         .write_enable       (write_enable),
         .data_in            (write_data),
-
         .data_out           (read_data),
         .data_not_found     (data_fault)
     );
-
+    
 endmodule

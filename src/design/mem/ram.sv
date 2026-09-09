@@ -1,7 +1,7 @@
 import rv32i::*;
 
 module ram #(
-    parameter MEM_SIZE_BYTES = 131072    // 128 KiB BRAM
+    parameter RAM_SIZE_BYTES = 131072    // 128 KiB BRAM
 ) (
     input logic clk,
 
@@ -21,7 +21,7 @@ module ram #(
 
     localparam INST_SIZE_BYTES = DATA_WIDTH >> 3;
 
-    Byte container [MEM_SIZE_BYTES - 1: 0];
+    Byte container [RAM_SIZE_BYTES - 1: 0];
     initial begin
         $readmemh("bootloader.hex", container);
     end
@@ -31,7 +31,7 @@ module ram #(
 
     always_ff @(posedge clk) begin
         // perform boundary check synchronously
-        if (instr_addr >= (MEM_SIZE_BYTES - INST_SIZE_BYTES)) begin
+        if (instr_addr >= (RAM_SIZE_BYTES - INST_SIZE_BYTES)) begin
             instr_fault_reg <= 1'b1;
             instr_out       <= '0;
         end else begin
@@ -51,7 +51,7 @@ module ram #(
     
     // boundary check must happen dynamically or be registered
     logic is_data_addr_invalid;
-    assign is_data_addr_invalid = ((data_addr + req_bytes) > MEM_SIZE_BYTES);
+    assign is_data_addr_invalid = ((data_addr + req_bytes) > RAM_SIZE_BYTES);
 
     always_ff @(posedge clk) begin
         data_fault_reg <= 1'b0;
