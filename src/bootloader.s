@@ -21,8 +21,8 @@ _start: # assume that when a program ends, there is a jump instruction that auto
     li   s3, MAGIC_NUMBER
 
     reset:
-        addi a0, x0, 0          # clear uart status reg (x10)
-        addi a1, x0, 0          # clear uart data reg   (x11)
+        addi a0, x0, 0      # clear uart status reg (x10)
+        addi a1, x0, 0      # clear uart data reg   (x11)
         addi s4, x0, 0      # size bytes
 
     idle:
@@ -31,7 +31,7 @@ _start: # assume that when a program ends, there is a jump instruction that auto
         j idle
 
     load_size:
-        addi t0, x0, 0      # loop 4 times for 4 bytes
+        addi t0, x0, 4      # loop 4 times for 4 bytes
         addi t3, x0, 0      # initialize shift counter to 0 bits
     1:
         call uart_loop
