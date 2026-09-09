@@ -1,96 +1,69 @@
 import rv32i::*;
 
-module unified_mem #(
-    parameter MEM_SIZE_BYTES = 131072    // 128 KiB BRAM
+module cpu_mem_top #(
+    parameter BOOT_ROM_SIZE_BYTES = 4096,
+    parameter RAM_SIZE_BYTES = 131072
 ) (
     input logic clk,
+    input logic rst_n,
 
-    // PORT A: instruction mem
+    // instruction fetch: absolute address, full memory map
     input  Word  instr_addr,
     output Word  instr_out,
     output logic instr_not_found,
 
-    // PORT B: data mem
-    input  Word     data_addr,
+    // data access: absolute address, full memory map
+    // ROM is protected: reads are allowed, writes are disallowed
+    // MMIO starts from address 0x80000000, handled by LSU itself
+    input  Word data_addr,
     input  ReqBytes req_bytes,
-    input  logic    write_enable,
-    input  Word     data_in,
-    output Word     data_out,
-    output logic    data_not_found
+    input  logic write_enable,
+    input  Word data_in,
+    output Word data_out,
+    output logic data_not_found
 );
 
-    localparam INST_SIZE_BYTES = DATA_WIDTH >> 3;
+    localparam Word RAM_BASE = BOOT_ROM_SIZE_BYTES;
 
-    Byte container [MEM_SIZE_BYTES - 1: 0];
-    initial begin
-        $readmemh("bootloader.hex", container);
+    // instruction fetch
+    logic sel_rom;
+    assign sel_rom = (instr_addr < RAM_BASE);
+
+    logic sel_rom_q;
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) sel_rom_q <= 1'b1;   // reset vector fetches from ROM first
+        else        sel_rom_q <= sel_rom;
     end
 
-    // PORT A:
-    logic instr_fault_reg;
+    Word  rom_instr_out, ram_instr_out;
+    logic rom_instr_fault, ram_instr_fault;
 
-    always_ff @(posedge clk) begin
-        // perform boundary check synchronously
-        if (instr_addr >= (MEM_SIZE_BYTES - INST_SIZE_BYTES)) begin
-            instr_fault_reg <= 1'b1;
-            instr_out       <= '0;
-        end else begin
-            instr_fault_reg <= 1'b0;
-            instr_out       <= { 
-                container[instr_addr + 3], // do INST_SIZE_BYTES times
-                container[instr_addr + 2], 
-                container[instr_addr + 1], 
-                container[instr_addr] 
-            };
-        end
-    end
-    assign instr_not_found = instr_fault_reg;
+    boot_rom #(
+        .ROM_SIZE_BYTES(BOOT_ROM_SIZE_BYTES)
+    ) u_boot_rom (
+        .clk             (clk),
+        .instr_addr      (instr_addr),            // rom's own bounds check rejects ram-range addresses
+        .instr_out       (rom_instr_out),
+        .instr_not_found (rom_instr_fault)
+    );
 
-    // PORT B:
-    logic data_fault_reg;
-    
-    // boundary check must happen dynamically or be registered
-    logic is_data_addr_invalid;
-    assign is_data_addr_invalid = ((data_addr + req_bytes) > MEM_SIZE_BYTES);
+    unified_ram #(
+        .MEM_SIZE_BYTES(RAM_SIZE_BYTES)
+    ) u_ram (
+        .clk             (clk),
+        .instr_addr      (instr_addr - RAM_BASE),
+        .instr_out       (ram_instr_out),
+        .instr_not_found (ram_instr_fault),
 
-    always_ff @(posedge clk) begin
-        data_fault_reg <= 1'b0;
-        
-        if (req_bytes == ZERO) begin
-            data_out <= '0;
-        end else if (is_data_addr_invalid) begin
-            data_fault_reg <= 1'b1;
-            data_out       <= '0;
-        end else begin
-            // synchronous write
-            if (write_enable) begin
-                case(req_bytes)
-                    ONE: begin
-                        container[data_addr]     <= data_in[7:0];
-                    end
-                    TWO: begin
-                        container[data_addr]     <= data_in[7:0];
-                        container[data_addr + 1] <= data_in[15:8];
-                    end
-                    FOUR: begin
-                        container[data_addr]     <= data_in[7:0];
-                        container[data_addr + 1] <= data_in[15:8];
-                        container[data_addr + 2] <= data_in[23:16];
-                        container[data_addr + 3] <= data_in[31:24];
-                    end
-                    default: data_fault_reg <= 1'b1;
-                endcase
-            end
+        .data_addr       (data_addr - RAM_BASE),
+        .req_bytes       (req_bytes),
+        .write_enable    (write_enable),
+        .data_in         (data_in),
+        .data_out        (data_out),
+        .data_not_found  (data_not_found)
+    );
 
-            // synchronous read
-            case (req_bytes)
-                ONE:  data_out <= {{(DATA_WIDTH - 8){1'b0}}, container[data_addr]};
-                TWO:  data_out <= {{(DATA_WIDTH - 16){1'b0}}, container[data_addr + 1], container[data_addr]};
-                FOUR: data_out <= { container[data_addr + 3], container[data_addr + 2], container[data_addr + 1], container[data_addr] };
-                default: data_fault_reg <= 1'b1;
-            endcase
-        end
-    end
-    assign data_not_found = data_fault_reg;
+    assign instr_out = sel_rom_q ? rom_instr_out : ram_instr_out;
+    assign instr_not_found = sel_rom_q ? rom_instr_fault : ram_instr_fault;
 
 endmodule
