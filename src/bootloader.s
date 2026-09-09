@@ -31,13 +31,15 @@ _start: # assume that when a program ends, there is a jump instruction that auto
         j idle
 
     load_size:
-        addi t0, x0, 4      # loop 4 times for 4 bytes
+        addi t0, x0, 0      # loop 4 times for 4 bytes
+        addi t3, x0, 0      # initialize shift counter to 0 bits
     1:
         call uart_loop
-        slli s4, s4, 8      # shift 8 bits to the left
-        ori  s4, s4, a1     # merge new byte to built count
-        addi t0, t0, -1     # decrement 
-        bnez t0, 1b         # go back if not yet 0
+        sll  t4, a1, t3     # shift new byte left by current shift counter (0 -> 8 -> 16 -> 24)
+        or   s4, s4, t4     # merge the shifted byte into size register s4
+        addi t3, t3, 8      # increment shift counter by 8 bits for the next byte
+        addi t0, t0, -1     # decrement
+        bnez t0, 1b         # goback if not yet 0
         j verify
 
     verify:
@@ -70,4 +72,5 @@ _start: # assume that when a program ends, there is a jump instruction that auto
         lbu  a1, 0(s2)   # load data byte once status is nonzero (valid byte ready)
         ret
 
-    # i (partially) wrote this on my notes app on my mobile when i was in class lmfao
+    # i (partially) wrote this bootloader on my notes app on my mobile when i was in class lmfao
+    
