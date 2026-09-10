@@ -33,6 +33,7 @@ module mmio_interface (
     // since we adjust mmio address, wrap-around condition due to 32-bit int limit is impossible
 
     Word mem_addr_0, mem_addr_1, mem_addr_2, mem_addr_3;
+    logic [7:0] mem_data_0, mem_data_1, mem_data_2, mem_data_3;
 
     MMIOAddress mmio_corrected_addr;
     assign mmio_corrected_addr = {1'b0, mmio_data_addr[30:0]};  // subtract 0x80000000 from mmio addr input internally to adjust address
@@ -58,21 +59,68 @@ module mmio_interface (
     // INPUTS
     assign p_uart_status  = {6'b0, uart_tx_busy, uart_rx_valid};
     assign p_uart_rx_data = uart_rx_data;
-    assign uart_tx_data   = uart_tx_data;
     
     // OUTPUTS
-    assign uart_tx_start  = uart
+    assign uart_tx_data   = p_uart_tx_data;
+
+    always_comb begin
+        if (write_enable) begin
+            case (req_bytes)
+                ONE: begin
+                end
+                TWO: begin
+                end
+                FOUR: begin
+                end
+                default: begin
+                    mem_data_0 = '0;
+                    mem_data_1 = '0;
+                    mem_data_2 = '0;
+                    mem_data_3 = '0;
+                end
+            endcase
+        end else begin
+            case (req_bytes)
+                ONE: begin
+                end
+                TWO: begin
+                end
+                FOUR: begin
+                    
+                end
+                default: begin
+                    mem_data_0 = '0;
+                    mem_data_1 = '0;
+                    mem_data_2 = '0;
+                    mem_data_3 = '0;
+                end
+            endcase
+        end
+    end
 
     always_ff @(posedge clk) begin
-        if (req_bytes == 0) begin
-            mmio_data_out <= '0;
-        end else begin
-            if (write_enable) begin // output function
+        
+        // initialization
+        uart_rx_valid <= 1'b0;
 
-            end else begin  // input function
-
+        if (write_enable) begin     // output function
+            if (mem_addr_0 == UART_TX_DATA) begin
+                p_uart_tx_data  <= mem_data_3;
+                uart_rx_valid   <= 1'b1;
             end
+            mmio_data_out <= '0;
+            // writes to invalid ports are discarded
+        end else begin              // input function
+            if (mem_addr_0 == UART_STATUS) begin
+                mem_data_0      <= p_uart_status;
+            end else if (mem_addr_0 == UART_RX_DATA) begin
+                mem_data_0      <= p_uart_rx_data;
+            end else begin
+                mem_data_0      <= '0;  // ports not covered are pull down to 0
+            end
+            mmio_data_out <= {mem_data_3, mem_data_2, mem_data_1, mem_data_0};
         end
+
     end
 
 endmodule
