@@ -16,8 +16,11 @@ module lsu #(
     output logic write_enable,  // if to write to data memory
     output Word write_data,     // formatted data bytes to write address
     output ReqBytes req_bytes,  // output for the requested bytes from data mem
+    output Word reg_data,       // 32 bit word to be written to reg file after loading
 
-    output Word reg_data        // 32 bit word to be written to reg file after loading
+    // mmio interface
+    input Word mmio_data,       // mmio fetched data
+    output logic mmio_access    // use MMIO (> 0x80000000)
 );
 
     assign mem_addr = alu_res;  // assign through lsu just to be more readable
@@ -27,6 +30,10 @@ module lsu #(
         write_enable = 1'b0;
         write_data = '0;
         reg_data = alu_res;
+        mmio_access = 1'b0;
+        if (alu_res[DATA_WIDTH - 1] == 1'b1) begin // check greater than 0x80000000
+            mmio_access = 1'b0;     // bypass regular memory access if MMIO address
+        end
         if (is_mem_read == 1'b1) begin  // load
             case (funct3)
                 3'b000: begin   // lb

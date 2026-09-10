@@ -1,6 +1,6 @@
 import rv32i::*;
 
-module ex_mem ( // 77 bits
+module ex_mem ( // 78 bits
     input logic clk,
     input logic rst_n,  // asynchronous active low reset
     input logic stall,
