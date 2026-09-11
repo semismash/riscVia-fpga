@@ -15,6 +15,7 @@ module mmio_interface (
     input  ReqBytes req_bytes,
     input  logic write_enable,
     input  Word mmio_data_in,
+    input  logic mem_req_start,
 
     // to LSU
     output Word mmio_data_out,
@@ -129,16 +130,16 @@ module mmio_interface (
 
             // initialization
             uart_tx_start   <= 1'b0;
-            mmio_data_ready <= (req_bytes != ZERO);     // set high when mem access data ready, LSU installs
+            mmio_data_ready <= mem_req_start;     // set high when mem access data ready, LSU installs
 
             if (write_enable) begin     // output function
-                if (tx_write_hit) begin                 // checks all 4 possible lanes
+                if (tx_write_hit && mem_req_start) begin    // checks all 4 possible lanes (pulse once per instruction)
                     p_uart_tx_data <= tx_write_byte;
                     uart_tx_start  <= 1'b1;
                 end
                 mmio_data_out <= '0;
                 // writes to invalid ports are discarded
-            end else begin              // input function
+            end else if (mem_req_start) begin              // input function
                 mmio_data_out <= {
                     mmio_read_byte(mem_addr_3), 
                     mmio_read_byte(mem_addr_2), 

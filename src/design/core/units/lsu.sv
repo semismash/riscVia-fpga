@@ -3,6 +3,9 @@ import rv32i::*;
 module lsu #(
     parameter DATA_WIDTH = rv32i::DATA_WIDTH
 ) (
+    input logic clk,
+    input logic rst_n,
+
     input logic [2:0] funct3,   // RV32I uses funct3 to differentiate between req_bytes for loads and stores
     input Word alu_res,         // ALU result to calculate load/store location
     input logic is_mem_read,    // if it is a mem read
@@ -18,12 +21,38 @@ module lsu #(
     output ReqBytes req_bytes,  // output for the requested bytes from data mem
     output Word reg_data,       // 32 bit word to be written to reg file after loading
 
+    // mem access validation for stalling during mem accesses
+    input logic mem_valid,          // returnedby mem module upon completed access
+    output logic mem_req_start,     // pulse 1 cycle during ONLY the start of a mem access
+    output logic mem_stage_busy,    // high for as long as an access is still waiting to be completed
+
     // mmio interface
     input Word mmio_data,       // mmio fetched data
     output logic mmio_access    // use MMIO (> 0x80000000)
 );
 
+    // check if instruction is a mem access
+    logic is_access;
+    assign is_access = is_mem_read || is_mem_write;
+    logic access_waiting;
+
     assign mem_addr = alu_res;  // assign through lsu just to be more readable
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            access_waiting <= 1'b0;
+        end else if (mem_req_start) begin
+            access_waiting <= 1'b1;           // request just dispatched, now waiting
+        end else if (mem_valid) begin
+            access_waiting <= 1'b0;           // response arrived, free to start a new one
+        end
+    end
+
+    assign mem_req_start = is_access && !access_waiting;
+    assign mem_stage_busy = is_access && !mem_valid;
+
+    Word data_in_sel;
+    assign data_in_sel = mmio_access ? mmio_data : data_in;     // switch between mmio and main memory
 
     always_comb begin
         req_bytes = ZERO;
@@ -32,29 +61,29 @@ module lsu #(
         reg_data = alu_res;
         mmio_access = 1'b0;
         if (alu_res[DATA_WIDTH - 1] == 1'b1) begin // check greater than 0x80000000
-            mmio_access = 1'b0;     // bypass regular memory access if MMIO address
+            mmio_access = 1'b1;     // bypass regular memory access if MMIO address
         end
         if (is_mem_read == 1'b1) begin  // load
             case (funct3)
                 3'b000: begin   // lb
                     req_bytes = ONE;
-                    reg_data = {{(DATA_WIDTH - 8){data_in[7]}}, data_in[7:0]};
+                    reg_data = {{(DATA_WIDTH - 8){data_in_sel[7]}}, data_in_sel[7:0]};
                 end
                 3'b001: begin   // lh
                     req_bytes = TWO;
-                    reg_data = {{(DATA_WIDTH - 16){data_in[15]}}, data_in[15:0]};
+                    reg_data = {{(DATA_WIDTH - 16){data_in_sel[15]}}, data_in_sel[15:0]};
                 end
                 3'b010: begin   // lw
                     req_bytes = FOUR;
-                    reg_data = {{(DATA_WIDTH - 32){data_in[31]}}, data_in[31:0]};   // first concat not needed, but kept for extensibility
+                    reg_data = {{(DATA_WIDTH - 32){data_in_sel[31]}}, data_in_sel[31:0]};   // first concat not needed, but kept for extensibility
                 end
                 3'b100: begin   // lbu
                     req_bytes = ONE;
-                    reg_data = {{(DATA_WIDTH - 8){1'b0}}, data_in[7:0]};
+                    reg_data = {{(DATA_WIDTH - 8){1'b0}}, data_in_sel[7:0]};
                 end
                 3'b101: begin   // lhu
                     req_bytes = TWO;
-                    reg_data = {{(DATA_WIDTH - 16){1'b0}}, data_in[15:0]};
+                    reg_data = {{(DATA_WIDTH - 16){1'b0}}, data_in_sel[15:0]};
                 end
                 default: begin end
             endcase
