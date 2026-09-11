@@ -22,9 +22,9 @@ module mmio_interface (
 
     // TO I/O modules:
     // UART RX/TX
-    input logic [7:0] uart_rx_data,
+    input Byte uart_rx_data,
     input logic uart_rx_valid,
-    output logic [7:0] uart_tx_data,
+    output Byte uart_tx_data,
     output logic uart_tx_start,
     input logic uart_tx_busy
 );
@@ -34,7 +34,7 @@ module mmio_interface (
     // since we adjust mmio address, wrap-around condition due to 32-bit int limit is impossible
 
     Word mem_addr_0, mem_addr_1, mem_addr_2, mem_addr_3;
-    logic [7:0] mem_data_write_0, mem_data_write_1, mem_data_write_2, mem_data_write_3; 
+    Byte mem_data_write_0, mem_data_write_1, mem_data_write_2, mem_data_write_3; 
 
     MMIOAddress mmio_corrected_addr;
     assign mmio_corrected_addr = MMIOAddress'({1'b0, mmio_data_addr[30:0]});
@@ -53,9 +53,9 @@ module mmio_interface (
     assign mem_addr_3 = (mmioplus3 < MMIO_SIZE_BYTES) ? Word'(mmioplus3) : 32'h7FFFFFFF;
 
     // I/O interfacing port addresses
-    logic [7:0] p_uart_status;    // 0x80000000   [0x00000000] (I)
-    logic [7:0] p_uart_rx_data;   // 0x80000004   [0x00000004] (I)
-    logic [7:0] p_uart_tx_data;   // 0x8000000C   [0x00000008] (O)
+    Byte p_uart_status;    // 0x80000000   [0x00000000] (I)
+    Byte p_uart_rx_data;   // 0x80000004   [0x00000004] (I)
+    Byte p_uart_tx_data;   // 0x8000000C   [0x00000008] (O)
 
     // INPUTS
     assign p_uart_status  = {6'b0, uart_tx_busy, uart_rx_valid};
@@ -65,7 +65,7 @@ module mmio_interface (
     assign uart_tx_data   = p_uart_tx_data;
 
     // unified function: use for all four read addresses to avoid redundancy
-    function automatic logic [7:0] mmio_read_byte(input MMIOAddress addr);
+    function automatic Byte mmio_read_byte(input MMIOAddress addr);
         case (addr)
             UART_STATUS:  mmio_read_byte = p_uart_status;
             UART_RX_DATA: mmio_read_byte = p_uart_rx_data;
@@ -101,7 +101,7 @@ module mmio_interface (
 
     // finds the lane which targetted TX_DATA
     logic tx_write_hit;
-    logic [7:0] tx_write_byte;
+    Byte tx_write_byte;
     always_comb begin
         tx_write_hit  = 1'b0;
         tx_write_byte = 8'h00;
