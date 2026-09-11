@@ -48,8 +48,11 @@ module stall_unit(
         is_l_use_no_gap = id_ex_mem_read && id_ex_reg_write && id_ex_rd_not_x0 &&
             ((if_id_rs1_valid && dep_id_ex_rd_if_id_rs1) || (if_id_rs2_valid && dep_id_ex_rd_if_id_rs2));
 
-        if (!instr_fetch_valid) begin
+        if (!data_fetch_valid) begin
             pc_enable       = 1'b0;
+            if_id_enable    = 1'b0;
+            id_ex_enable    = 1'b0;
+            ex_mem_enable   = 1'b0;
             meta_is_stall   = 1'b1;
         end else if (branch_taken) begin  // prioritize control hazards
             if_id_clear         = 1'b1;
@@ -61,11 +64,9 @@ module stall_unit(
             id_ex_clear     = 1'b1;
             meta_is_stall   = 1'b1;
             meta_is_l_use   = 1'b1;
-        end else if (!data_fetch_valid) begin
+        end else if (!instr_fetch_valid) begin
             pc_enable       = 1'b0;
             if_id_enable    = 1'b0;
-            id_ex_enable    = 1'b0;
-            ex_mem_enable   = 1'b0;
             meta_is_stall   = 1'b1;
         end
 
