@@ -49,13 +49,13 @@ module mmio_interface (
     input logic uart_rx_valid,
     output Byte uart_tx_data,
     output logic uart_tx_start,
-    input logic uart_tx_busy
+    input logic uart_tx_busy,
     // TELEMTRY UNIT
     output logic meta_clear,
     input MetaCount meta_instr_count,
     input MetaCount meta_stall_count,
     input MetaCount meta_l_use_count,
-    input MetaCount meta_br_flush_count,
+    input MetaCount meta_br_flush_count
 );
 
     // no data fault raised, value simply discarded

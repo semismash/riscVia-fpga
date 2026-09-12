@@ -24,13 +24,13 @@ module rv32i_core (
 
     // I/O
     input logic i_rx,
-    output logic o_tx,
+    output logic o_tx
 
     // telemetry
-    output MetaCount meta_instr_count,
-    output MetaCount meta_stall_count,
-    output MetaCount meta_l_use_count,
-    output MetaCount meta_br_flush_count
+    // output MetaCount meta_instr_count,
+    // output MetaCount meta_stall_count,
+    // output MetaCount meta_l_use_count,
+    // output MetaCount meta_br_flush_count
 );
 
     // hazard unit
@@ -462,7 +462,13 @@ module rv32i_core (
         .uart_rx_valid      (uart_rx_valid),
         .uart_tx_data       (uart_tx_data),
         .uart_tx_start      (uart_tx_start),
-        .uart_tx_busy       (uart_tx_busy)
+        .uart_tx_busy       (uart_tx_busy),
+        // TELEMETRY UNIT
+        .meta_clear         (meta_clear),
+        .meta_instr_count   (meta_instr_count),
+        .meta_stall_count   (meta_stall_count),
+        .meta_l_use_count   (meta_l_use_count),
+        .meta_br_flush_count(meta_br_flush_count),
     );
 
     mem_wb u_mem_wb (
@@ -531,6 +537,7 @@ module rv32i_core (
     meta u_meta (
         .clk                    (clk),
         .rst_n                  (rst_n),
+        .clear                  (meta_clear),
         .stop_in                (mem_wb_stop),
         .valid_instr            (mem_wb_valid_instr),
         .is_stall               (hz_meta_is_stall),

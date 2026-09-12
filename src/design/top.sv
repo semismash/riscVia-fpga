@@ -7,12 +7,13 @@ module top(
     output logic stop,  // safe stop
     // CPU I/O
     input logic i_rx,
-    output logic o_tx,
+    output logic o_tx
+
     // telemetry data
-    output MetaCount meta_instr_count,
-    output MetaCount meta_stall_count,
-    output MetaCount meta_l_use_count,
-    output MetaCount meta_br_flush_count
+    // output MetaCount meta_instr_count,
+    // output MetaCount meta_stall_count,
+    // output MetaCount meta_l_use_count,
+    // output MetaCount meta_br_flush_count
 );
 
     // from CPU
@@ -54,12 +55,12 @@ module top(
         .stop (stop),   // x
         // UART
         .i_rx (i_rx),
-        .o_tx (o_tx),
+        .o_tx (o_tx)
         // TELEMETRY
-        .meta_instr_count (meta_instr_count),       // x
-        .meta_stall_count (meta_stall_count),       // x
-        .meta_l_use_count (meta_l_use_count),       // x
-        .meta_br_flush_count (meta_br_flush_count)  // x
+        // .meta_instr_count (meta_instr_count),       // x
+        // .meta_stall_count (meta_stall_count),       // x
+        // .meta_l_use_count (meta_l_use_count),       // x
+        // .meta_br_flush_count (meta_br_flush_count)  // x
     );
 
 
