@@ -1,4 +1,5 @@
 import rv32i::*;
+import uart::*;
 
 module rv32i_core (
     input logic clk,            // CPU clock
@@ -7,32 +8,51 @@ module rv32i_core (
     input Instruction instr_in, // next instruction (MEM -> FU)
     input Word data_in,         // input data from (MEM -> LSU)
     input logic if_fault,       // instruction fetch fault (MEM -> FU)
-    input logic data_fault,     // data fetch fault (MEM) 
+    input logic data_fault,     // data fetch fault (MEM)
+    input logic instr_valid,    // instruction memory fetch complete (not busy)
+    input logic data_valid,     // data mem access complete
 
-    output Word if_addr,        // instruction fetch address (FU)
-    output Word data_addr,      // data address (LSU)
-    output Word data_out,       // data out (LSU)    
-    output logic write_en,      // write enable (LSU)
-    output ReqBytes req_bytes,  // requested bytes amount (LSU)
+    output Word if_addr,            // instruction fetch address (FU)
+    output Word data_addr,          // data address (LSU)
+    output Word data_out,           // data out (LSU)
+    output logic write_en,          // write enable (LSU)
+    output ReqBytes req_bytes,      // requested bytes amount (LSU)
+    output logic data_req_start,    // first requests data to memory (LSU)
 
     output logic halt,          // halt on panic
     output logic stop,          // safe halt
+
+    // I/O
+    input logic i_rx,
+    output logic o_tx,
 
     // telemetry
     output MetaCount meta_instr_count,
     output MetaCount meta_stall_count,
     output MetaCount meta_l_use_count,
-    output MetaCount meta_br_flush_count,
+    output MetaCount meta_br_flush_count
 );
 
     // hazard unit
     logic hz_pc_enable;
     logic hz_if_id_enable;
+    logic hz_id_ex_enable;
+    logic hz_ex_mem_enable;
+    logic hz_mem_wb_enable;
     logic hz_if_id_clear;
     logic hz_id_ex_clear;
     logic hz_meta_is_stall;
     logic hz_meta_is_l_use;
     logic hz_meta_branch_flush;
+
+    Word  fetch_pc;
+    logic instr_fetch_valid;
+    logic data_fetch_valid;
+    logic mem_valid;
+    logic mem_req_start;
+    logic mem_stage_busy;
+    logic mmio_access;
+    Word  mmio_data;
 
     // fetch
     logic if_fault_out;
@@ -78,6 +98,7 @@ module rv32i_core (
     RegAddr id_ex_rs1_addr;
     RegAddr id_ex_rs2_addr;
     RegAddr id_ex_rd_addr;
+    OpCode id_ex_opcode;
     Word id_ex_rs1_data;
     Word id_ex_rs2_data;
     Word fwd_store_data;  // rs2, forwarded, for store-data path (bypasses the ALU entirely so needs its own mux)
@@ -140,13 +161,23 @@ module rv32i_core (
     logic fwd_alu_in1_mem_wb;
     logic fwd_alu_in2_ex_mem;
     logic fwd_alu_in2_mem_wb;
-    
-    // temp fix
+
+    logic [7:0] uart_rx_data;
+    logic       uart_rx_valid;
+    logic [7:0] uart_tx_data;
+    logic       uart_tx_start;
+    logic       uart_tx_busy;
+    logic       mmio_data_ready;
+
     Word ex_result;
     Word pc_plus4;
 
     assign pc_plus4  = id_ex_pc + 32'd4;
     assign ex_result = (id_ex_is_jal || id_ex_is_jalr) ? pc_plus4 : alu_out;
+
+    assign mem_valid = mmio_access ? mmio_data_ready : data_valid;
+    assign data_req_start = mem_req_start;
+    assign data_fetch_valid = !mem_stage_busy;
 
     reg_file u_reg_file(
         // clk and reset
@@ -180,77 +211,24 @@ module rv32i_core (
         .pc_out         (pc)
     );
 
-    // hazard_unit u_hazard_unit (
-    //     // input
-    //     .if_id_opcode       (if_id_opcode),
-    //     .if_id_rs1          (if_id_rs1_addr),
-    //     .if_id_rs2          (if_id_rs2_addr),
-    //     .id_ex_mem_read     (id_ex_mem_read),
-    //     .id_ex_reg_write    (id_ex_reg_write),
-    //     .id_ex_rdst         (id_ex_rd_addr),
-    //     .branch_taken       (branch_taken),
-    //     .ex_mem_reg_write   (ex_mem_reg_write),
-    //     .ex_mem_rdst        (ex_mem_rd_addr),
-    //     .mem_wb_reg_write   (mem_wb_reg_write),
-    //     .mem_wb_rdst        (mem_wb_rd_addr),
-    //     // output
-    //     .pc_enable          (hz_pc_enable),
-    //     .if_id_enable       (hz_if_id_enable),
-    //     .if_id_clear        (hz_if_id_clear),
-    //     .id_ex_clear        (hz_id_ex_clear),
-    //     // metadata
-    //     .meta_is_stall      (hz_meta_is_stall),
-    //     .meta_is_l_use      (hz_meta_is_l_use),
-    //     .meta_branch_flush  (hz_meta_branch_flush)
-    // );
-
-    hazard_unit u_hazard_unit (
-    // IF/ID (incl. OpCode bits)
-    .if_id_opcode          (if_id_opcode),
-    .id_ex_opcode          (id_ex_opcode),
-    .if_id_rs1             (if_id_rs1_addr),
-    .if_id_rs2             (if_id_rs2_addr),
-    // ID/EX
-    .id_ex_rs1             (id_ex_rs1_addr),
-    .id_ex_rs2             (id_ex_rs2_addr),
-    .id_ex_rd              (id_ex_rd_addr),
-    // EX/MEM
-    .ex_mem_rd             (ex_mem_rd_addr),
-    // MEM/WB
-    .mem_wb_rd             (mem_wb_rd_addr),
-    // TO STALL UNIT DIRECTLY
-    .id_ex_mem_read        (id_ex_mem_read),    // if load (X)
-    .id_ex_reg_write       (id_ex_reg_write),   // if reg write (X)
-    .branch_taken          (branch_taken),      // check if a branch was taken, to stall control hazards for now (X)
-    // TO FORWARDING UNIT DIRECTLY
-    .ex_mem_reg_write      (ex_mem_reg_write),
-    .mem_wb_reg_write      (mem_wb_reg_write),
-    // OUTPUTS
-    // STALLING
-    .pc_enable             (hz_pc_enable),
-    .if_id_enable          (hz_if_id_enable),
-    .if_id_clear           (hz_if_id_clear),
-    .id_ex_clear           (hz_id_ex_clear),
-    // FORWARDING
-    .fwd_alu_in1_ex_mem    (fwd_alu_in1_ex_mem),    // forward to alu in 1 from src res in ex mem (X)
-    .fwd_alu_in2_ex_mem    (fwd_alu_in2_ex_mem),    // forward to alu in 2 from src res in ex mem (X)
-    .fwd_alu_in1_mem_wb    (fwd_alu_in1_mem_wb),    // forward to alu in 1 from src res in ex mem (X)
-    .fwd_alu_in2_mem_wb    (fwd_alu_in2_mem_wb),    // forward to alu in 2 from src res in ex mem (X)
-    // METADATA
-    .meta_branch_flush     (meta_branch_flush),
-    .meta_is_stall         (meta_is_stall),
-    .meta_is_l_use         (meta_is_l_use)
-);
-
-    fetch u_fetch(  // x
-        // IN
-        .pc_in          (pc),
-        .instr_in       (instr_in),
-        .is_not_found   (if_fault),
-        // OUT
-        .mem_fetch_addr (if_addr),
-        .instr_out      (instr),
-        .mem_fault      (if_fault_out)
+    fetch #(    // X
+        .DATA_WIDTH        (rv32i::DATA_WIDTH)
+    ) u_fetch (
+        // clock, reset, and stall
+        .clk               (clk),
+        .rst_n             (rst_n),
+        .stall             (!hz_pc_enable),
+        // inputs
+        .pc_in             (pc),
+        .instr_in          (instr_in),
+        .is_not_found      (if_fault),
+        .instr_valid       (instr_valid),
+        // outputs
+        .pc_out            (fetch_pc),
+        .mem_fetch_addr    (if_addr),
+        .instr_out         (instr),
+        .mem_fault         (if_fault_out),
+        .fetch_valid       (instr_fetch_valid)
     );
 
     if_id u_if_id (
@@ -260,7 +238,7 @@ module rv32i_core (
         .stall          (!hz_if_id_enable),
         .clear          (hz_if_id_clear),
         // input
-        .i_pc           (if_addr),
+        .i_pc           (fetch_pc),
         .i_instr        (instr),
         // output
         .o_pc           (if_id_pc),
@@ -312,9 +290,10 @@ module rv32i_core (
         // clk and reset
         .clk              (clk),
         .rst_n            (rst_n),
-        .stall            (1'b0),
+        .stall            (!hz_id_ex_enable),
         .clear            (hz_id_ex_clear),
         // input
+        .i_opcode         (if_id_opcode),
         .i_pc             (if_id_pc),
         .i_rs1_addr       (rs1_addr),
         .i_rs2_addr       (rs2_addr),
@@ -339,6 +318,7 @@ module rv32i_core (
         .i_is_stop        (d_stop),
         .i_valid_instr    (d_valid_instr),
         // output
+        .o_opcode         (id_ex_opcode),
         .o_pc             (id_ex_pc),
         .o_rs1_addr       (id_ex_rs1_addr),
         .o_rs2_addr       (id_ex_rs2_addr),
@@ -411,7 +391,7 @@ module rv32i_core (
         // clk and reset
         .clk            (clk),
         .rst_n          (rst_n),
-        .stall          (1'b0),
+        .stall          (!hz_ex_mem_enable),
         .clear          (1'b0),
         // input
         .i_rs2_val      (fwd_store_data),
@@ -437,28 +417,59 @@ module rv32i_core (
         .o_valid_instr  (ex_mem_valid_instr)
     );
 
-    lsu u_lsu(
-        // IN
-        .funct3         (ex_mem_funct3),
-        .alu_res        (ex_mem_result),
-        .is_mem_read    (ex_mem_mem_read),
-        .is_mem_write   (ex_mem_mem_write),
-        .rs2_in         (ex_mem_rs2_val),
-        .mem_to_reg     (ex_mem_mem_to_reg),
-        .data_in        (data_in),
-        // OUT
-        .mem_addr       (data_addr),
-        .write_enable   (write_en),
-        .write_data     (data_out),
-        .req_bytes      (req_bytes),
-        .reg_data       (reg_write_data)
+    lsu #(  // X
+        .DATA_WIDTH        (rv32i::DATA_WIDTH)
+    ) u_lsu (
+        .clk               (clk),
+        .rst_n             (rst_n),
+        .funct3            (ex_mem_funct3),
+
+        .alu_res           (ex_mem_result),
+        .is_mem_read       (ex_mem_mem_read),
+        .is_mem_write      (ex_mem_mem_write),
+        .mem_to_reg        (ex_mem_mem_to_reg),
+        .rs2_in            (ex_mem_rs2_val),
+
+        .data_in           (data_in),
+        .mem_addr          (data_addr),
+        .write_enable      (write_en),
+        .write_data        (data_out),
+        .req_bytes         (req_bytes),
+        .reg_data          (reg_write_data),
+
+        .mem_valid         (mem_valid),
+        .mem_req_start     (mem_req_start),
+        .mem_stage_busy    (mem_stage_busy),
+
+        .mmio_data         (mmio_data),
+        .mmio_access       (mmio_access)
+    );
+
+    mmio_interface u_mmio_interface (   // X
+        .clk                (clk),
+        .rst_n              (rst_n),
+        .mmio_data_addr     (data_addr),
+        .req_bytes          (req_bytes),
+        .write_enable       (write_en),
+        .mmio_data_in       (data_out),
+        .mem_req_start      (mem_req_start),
+        // to LSU
+        .mmio_data_out      (mmio_data),
+        .mmio_data_ready    (mmio_data_ready),
+        // TO I/O modules:
+        // UART RX/TX
+        .uart_rx_data       (uart_rx_data),
+        .uart_rx_valid      (uart_rx_valid),
+        .uart_tx_data       (uart_tx_data),
+        .uart_tx_start      (uart_tx_start),
+        .uart_tx_busy       (uart_tx_busy)
     );
 
     mem_wb u_mem_wb (
         // clk
         .clk            (clk),
         .rst_n          (rst_n),
-        .stall          (1'b0),
+        .stall          (!hz_mem_wb_enable),
         .clear          (1'b0),
         // input
         .i_rd_addr      (ex_mem_rd_addr),
@@ -474,6 +485,49 @@ module rv32i_core (
         .o_valid_instr  (mem_wb_valid_instr)
     );
 
+    hazard_unit u_hazard_unit ( // X
+        // IF/ID (incl. OpCode bits)
+        .if_id_opcode          (if_id_opcode),
+        .id_ex_opcode          (id_ex_opcode),
+        .if_id_rs1             (if_id_rs1_addr),
+        .if_id_rs2             (if_id_rs2_addr),
+        // ID/EX
+        .id_ex_rs1             (id_ex_rs1_addr),
+        .id_ex_rs2             (id_ex_rs2_addr),
+        .id_ex_rd              (id_ex_rd_addr),
+        // EX/MEM
+        .ex_mem_rd             (ex_mem_rd_addr),
+        // MEM/WB
+        .mem_wb_rd             (mem_wb_rd_addr),
+        // TO STALL UNIT DIRECTLY
+        .id_ex_mem_read        (id_ex_mem_read),    // if load (X)
+        .id_ex_reg_write       (id_ex_reg_write),   // if reg write (X)
+        .branch_taken          (branch_taken),      // check if a branch was taken, to stall control hazards for now (X)
+        .instr_fetch_valid     (instr_fetch_valid),
+        .data_fetch_valid      (data_fetch_valid),
+        // TO FORWARDING UNIT DIRECTLY
+        .ex_mem_reg_write      (ex_mem_reg_write),
+        .mem_wb_reg_write      (mem_wb_reg_write),
+        // OUTPUTS
+        // STALLING
+        .pc_enable             (hz_pc_enable),
+        .if_id_enable          (hz_if_id_enable),
+        .id_ex_enable          (hz_id_ex_enable),
+        .ex_mem_enable         (hz_ex_mem_enable),
+        .mem_wb_enable         (hz_mem_wb_enable),
+        .if_id_clear           (hz_if_id_clear),
+        .id_ex_clear           (hz_id_ex_clear),
+        // FORWARDING
+        .fwd_alu_in1_ex_mem    (fwd_alu_in1_ex_mem),    // forward to alu in 1 from src res in ex mem (X)
+        .fwd_alu_in2_ex_mem    (fwd_alu_in2_ex_mem),    // forward to alu in 2 from src res in ex mem (X)
+        .fwd_alu_in1_mem_wb    (fwd_alu_in1_mem_wb),    // forward to alu in 1 from src res in ex mem (X)
+        .fwd_alu_in2_mem_wb    (fwd_alu_in2_mem_wb),    // forward to alu in 2 from src res in ex mem (X)
+        // METADATA
+        .meta_branch_flush     (hz_meta_branch_flush),
+        .meta_is_stall         (hz_meta_is_stall),
+        .meta_is_l_use         (hz_meta_is_l_use)
+    );
+
     meta u_meta (
         .clk                    (clk),
         .rst_n                  (rst_n),
@@ -487,6 +541,25 @@ module rv32i_core (
         .meta_stall_count       (meta_stall_count),
         .meta_l_use_count       (meta_l_use_count),
         .meta_br_flush_count    (meta_br_flush_count)
+    );
+
+    uart_module #(
+        .CLK_FREQ         (CPU_CLOCK_FREQ),
+        .BAUD_RATE        (UART_BAUD_RATE),
+        .SAMPLING_RATE    (UART_SAMPLING_RATE)
+    ) u_uart_module (
+        // clock and reset
+        .clk              (clk),
+        .rst_n            (rst_n),
+        // tx
+        .tx_data          (uart_tx_data),
+        .tx_start         (uart_tx_start),
+        .tx               (o_tx),
+        .tx_busy          (uart_tx_busy),
+        // rx
+        .rx               (i_rx),
+        .rx_data          (uart_rx_data),
+        .rx_valid         (uart_rx_valid)
     );
 
     assign halt = if_fault_out | data_fault | illegal_instr;

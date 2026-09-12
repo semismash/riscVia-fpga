@@ -13,11 +13,14 @@ module top(
 );
 
     // from CPU
-    Word if_addr        /* verilator public_flat_rw */;
-    Word data_addr      /* verilator public_flat_rw */;
-    Word write_data     /* verilator public_flat_rw */;
-    logic write_enable  /* verilator public_flat_rw */;
-    ReqBytes req_bytes  /* verilator public_flat_rw */;
+    Word if_addr            /* verilator public_flat_rw */;
+    Word data_addr          /* verilator public_flat_rw */;
+    Word write_data         /* verilator public_flat_rw */;
+    logic write_enable      /* verilator public_flat_rw */;
+    ReqBytes req_bytes      /* verilator public_flat_rw */;
+    logic instr_valid       /* verilator public_flat_rw */;
+    logic data_req_start    /* verilator public_flat_rw */;
+    logic data_valid        /* verilator public_flat_rw */;
 
     // to CPU
     Instruction instr;
@@ -51,22 +54,25 @@ module top(
     );
 
     mem #(
-        .ROM_SIZE_BYTES     (ROM_SIZE_BYTES),
-        .RAM_SIZE_BYTES     (RAM_SIZE_BYTES)
+        .ROM_SIZE_BYTES     (ROM_SIZE_BYTES),   // x
+        .RAM_SIZE_BYTES     (RAM_SIZE_BYTES)    // x
     ) u_mem (
-        .clk                (clk),
-        .rst_n              (rst_n),
+        .clk                (clk),              // x
+        .rst_n              (rst_n),            // x
         // instruction fetch
-        .instr_addr         (if_addr),
-        .instr_out          (instr),
-        .instr_not_found    (if_fault),
+        .instr_addr         (if_addr),          // x
+        .instr_out          (instr),            // x
+        .instr_valid        (instr_valid),      // x
+        .instr_not_found    (if_fault),         // x
         // data access
-        .data_addr          (data_addr),
-        .req_bytes          (req_bytes),
-        .write_enable       (write_enable),
-        .data_in            (write_data),
-        .data_out           (read_data),
-        .data_not_found     (data_fault)
+        .data_addr          (data_addr),        // x
+        .req_bytes          (req_bytes),        // x
+        .write_enable       (write_enable),     // x
+        .data_in            (write_data),       // x
+        .data_req_start     (data_req_start),   // x
+        .data_out           (read_data),        // x
+        .data_valid         (data_valid),       // x
+        .data_not_found     (data_fault)        // x
     );
     
 endmodule

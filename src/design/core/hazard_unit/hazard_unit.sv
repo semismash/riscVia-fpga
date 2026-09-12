@@ -16,6 +16,8 @@ module hazard_unit (
     input logic id_ex_mem_read,     // if load (X)
     input logic id_ex_reg_write,    // if reg write (X)
     input logic branch_taken,       // check if a branch was taken, to stall control hazards for now (X)
+    input logic instr_fetch_valid,  // x
+    input logic data_fetch_valid,   // x
     // TO FORWARDING UNIT DIRECTLY
     input logic ex_mem_reg_write,   // x
     input logic mem_wb_reg_write,   // x
@@ -23,6 +25,9 @@ module hazard_unit (
     // STALLING
     output logic pc_enable,     // x
     output logic if_id_enable,  // x
+    output logic id_ex_enable,  // x
+    output logic ex_mem_enable, // x
+    output logic mem_wb_enable, // x
     output logic if_id_clear,   // x
     output logic id_ex_clear,   // x
     // FORWARDING
@@ -101,12 +106,17 @@ module hazard_unit (
         .id_ex_mem_read            (id_ex_mem_read), // if load (load-use)                                              // x
         .id_ex_reg_write           (id_ex_reg_write), // if writing to reg (mostly to disqualify non-load instructions) // x
         .branch_taken              (branch_taken), // check if a branch was taken, to stall control hazards for now     // x
+        .instr_fetch_valid         (instr_fetch_valid), // x
+        .data_fetch_valid          (data_fetch_valid),  // x
         // if read registers are even valid to begin with
         .if_id_rs1_valid           (if_id_rs1_valid),
         .if_id_rs2_valid           (if_id_rs2_valid),
         // OUTPUTS
         .pc_enable                 (pc_enable),     // x
         .if_id_enable              (if_id_enable),  // x
+        .id_ex_enable              (id_ex_enable),  // x
+        .ex_mem_enable             (ex_mem_enable), // x
+        .mem_wb_enable             (mem_wb_enable), // x
         .if_id_clear               (if_id_clear),   // x
         .id_ex_clear               (id_ex_clear),   // x
         // METADATA

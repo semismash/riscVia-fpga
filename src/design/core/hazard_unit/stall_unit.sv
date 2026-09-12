@@ -20,6 +20,7 @@ module stall_unit(
     output logic if_id_enable,
     output logic id_ex_enable,
     output logic ex_mem_enable,
+    output logic mem_wb_enable,
     // METADATA
     output logic meta_branch_flush,
     output logic meta_is_stall,
@@ -38,6 +39,7 @@ module stall_unit(
         if_id_enable = 1'b1;
         id_ex_enable = 1'b1;
         ex_mem_enable = 1'b1;
+        mem_wb_enable = 1'b1;
         if_id_clear = 1'b0;
         id_ex_clear = 1'b0;
 
@@ -53,6 +55,7 @@ module stall_unit(
             if_id_enable    = 1'b0;
             id_ex_enable    = 1'b0;
             ex_mem_enable   = 1'b0;
+            mem_wb_enable   = 1'b0;
             meta_is_stall   = 1'b1;
         end else if (branch_taken) begin  // prioritize control hazards
             if_id_clear         = 1'b1;

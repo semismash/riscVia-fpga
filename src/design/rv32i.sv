@@ -1,4 +1,6 @@
 package rv32i;
+
+    localparam CPU_CLOCK_FREQ = 10_000_000;
     
     localparam DATA_WIDTH = 32;
     localparam ADDR_WIDTH = 5;
