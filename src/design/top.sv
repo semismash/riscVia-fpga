@@ -5,6 +5,9 @@ module top(
     input logic rst_n,  // active low reset
     output logic halt,  // halt detect
     output logic stop,  // safe stop
+    // CPU I/O
+    input logic i_rx,
+    output logic o_tx,
     // telemetry data
     output MetaCount meta_instr_count,
     output MetaCount meta_stall_count,
@@ -28,30 +31,37 @@ module top(
     logic if_fault;
     logic data_fault;
 
-    rv32i_core u_cpu(
-        //clk and reset
-        .clk            (clk),
-        .rst_n          (rst_n),
+    rv32i_core u_cpu (
+        // clock and reset
+        .clk (clk),                         // x
+        .rst_n (rst_n),                     // x
         // IN
-        .instr_in       (instr),
-        .data_in        (read_data),
-        .if_fault       (if_fault),
-        .data_fault     (data_fault),
+        .instr_in (instr),                  // x
+        .data_in (read_data),               // x
+        .if_fault (if_fault),               // x
+        .data_fault (data_fault),           // x
+        .instr_valid (instr_valid),         // x
+        .data_valid (data_valid),           // x
         // OUT
-        .if_addr        (if_addr),
-        .data_addr      (data_addr),
-        .data_out       (write_data), 
-        .write_en       (write_enable),
-        .req_bytes      (req_bytes),
+        .if_addr (if_addr),                 // x
+        .data_addr (data_addr),             // x
+        .data_out (write_data),             // x
+        .write_en (write_enable),           // x
+        .req_bytes (req_bytes),             // x
+        .data_req_start (data_req_start),   // x
         // HALT
-        .halt           (halt),
-        .stop           (stop),
+        .halt (halt),   // x
+        .stop (stop),   // x
+        // UART
+        .i_rx (i_rx),
+        .o_tx (o_tx),
         // TELEMETRY
-        .meta_instr_count       (meta_instr_count),
-        .meta_stall_count       (meta_stall_count),
-        .meta_l_use_count       (meta_l_use_count),
-        .meta_br_flush_count    (meta_br_flush_count)
+        .meta_instr_count (meta_instr_count),       // x
+        .meta_stall_count (meta_stall_count),       // x
+        .meta_l_use_count (meta_l_use_count),       // x
+        .meta_br_flush_count (meta_br_flush_count)  // x
     );
+
 
     mem #(
         .ROM_SIZE_BYTES     (ROM_SIZE_BYTES),   // x
