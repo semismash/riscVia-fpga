@@ -169,6 +169,13 @@ module rv32i_core (
     logic       uart_tx_busy;
     logic       mmio_data_ready;
 
+    // meta unit
+    logic meta_clear;
+    MetaCount meta_instr_count;
+    MetaCount meta_stall_count;
+    MetaCount meta_l_use_count;
+    MetaCount meta_br_flush_count;
+
     Word ex_result;
     Word pc_plus4;
 
