@@ -1,6 +1,6 @@
 import rv32i::*;
 
-module id_ex (  // 160 bits
+module id_ex (  // 161 bits
     input logic clk,
     input logic rst_n,  // asynchronous active low reset
     input logic stall,
@@ -28,6 +28,7 @@ module id_ex (  // 160 bits
     input logic i_reg_write,      // 1 bit
     input logic i_imm_to_reg,     // 1 bit
     input logic i_mem_to_reg,     // 1 bit
+    input logic i_valid_instr,    // 1 bit
 
     output OpCode o_opcode,
     output Word o_pc,
@@ -50,7 +51,8 @@ module id_ex (  // 160 bits
     output logic o_is_jalr,
     output logic o_reg_write,
     output logic o_imm_to_reg,
-    output logic o_mem_to_reg
+    output logic o_mem_to_reg,
+    output logic o_valid_instr
 );
 
     always_ff @(posedge clk or negedge rst_n) begin
@@ -77,6 +79,7 @@ module id_ex (  // 160 bits
             o_reg_write    <= '0;
             o_imm_to_reg   <= '0;
             o_mem_to_reg   <= '0;
+            o_valid_instr  <= '0;
         end else if (!stall) begin  // do normal logic if NOT a stall
             o_opcode       <= i_opcode;
             o_pc           <= i_pc;
@@ -100,6 +103,7 @@ module id_ex (  // 160 bits
             o_reg_write    <= i_reg_write;
             o_imm_to_reg   <= i_imm_to_reg;
             o_mem_to_reg   <= i_mem_to_reg;
+            o_valid_instr  <= i_valid_instr;
         end
     end
 

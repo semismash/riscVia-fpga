@@ -1,4 +1,4 @@
-stall_cimport rv32i::*;
+import rv32i::*;
 
 typedef enum Word {
 
@@ -8,7 +8,7 @@ typedef enum Word {
     UART_TX_DATA    = 32'h00000008,     // O
 
     // META
-    META_CLEAR      = 32'h00001000,     // O
+    META_CONTROL    = 32'h00001000,     // O; includes both meta_clear (LSB) + meta_enable (LSB + 1)
     META_INSTR_C_0  = 32'h00001004,     // I
     META_INSTR_C_1  = 32'h00001005,     // I
     META_INSTR_C_2  = 32'h00001006,     // I
@@ -24,7 +24,7 @@ typedef enum Word {
     META_FLUSH_C_0  = 32'h00001010,     // I
     META_FLUSH_C_1  = 32'h00001011,     // I
     META_FLUSH_C_2  = 32'h00001012,     // I
-    META_FLUSH_C_3  = 32'h00001013,     // I
+    META_FLUSH_C_3  = 32'h00001013      // I
 
 } MMIOAddress;
 
@@ -51,6 +51,7 @@ module mmio_interface (
     output logic uart_tx_start,
     input logic uart_tx_busy,
     // TELEMTRY UNIT
+    output logic meta_enable,
     output logic meta_clear,
     input MetaCount meta_instr_count,
     input MetaCount meta_stall_count,
@@ -87,7 +88,7 @@ module mmio_interface (
     Byte p_uart_status;         // 0x80000000   [0x00000000] (I)
     Byte p_uart_rx_data;        // 0x80000004   [0x00000004] (I)
     Byte p_uart_tx_data;        // 0x80000008   [0x00000008] (O)
-    Byte p_meta_clear;          // 0x80001000   [0x00001000] (O)
+    Byte p_meta_control;        // 0x80001000   [0x00001000] (O)
     // 0x80001004   [0x00001004-1007] (I)
     Byte p_meta_instr_c_0, p_meta_instr_c_1, p_meta_instr_c_2, p_meta_instr_c_3;
     // 0x80001008   [0x00001008-100B] (I) 
@@ -123,7 +124,8 @@ module mmio_interface (
     
     // OUTPUTS
     assign uart_tx_data   = p_uart_tx_data;
-    assign meta_clear     = p_meta_clear;
+    assign meta_clear     = p_meta_control[0];
+    assign meta_enable    = p_meta_control[1];
 
     // ----- ADD INPUT (READ PORTS) HERE -----
 
@@ -148,10 +150,10 @@ module mmio_interface (
             META_L_USE_C_2:     mmio_read_byte = p_meta_l_use_c_2;
             META_L_USE_C_3:     mmio_read_byte = p_meta_l_use_c_3;
 
-            META_BR_FLUSH_C_0:  mmio_read_byte = p_meta_br_flush_c_0;
-            META_BR_FLUSH_C_1:  mmio_read_byte = p_meta_br_flush_c_1;
-            META_BR_FLUSH_C_2:  mmio_read_byte = p_meta_br_flush_c_2;
-            META_BR_FLUSH_C_3:  mmio_read_byte = p_meta_br_flush_c_3;
+            META_FLUSH_C_0:     mmio_read_byte = p_meta_br_flush_c_0;
+            META_FLUSH_C_1:     mmio_read_byte = p_meta_br_flush_c_1;
+            META_FLUSH_C_2:     mmio_read_byte = p_meta_br_flush_c_2;
+            META_FLUSH_C_3:     mmio_read_byte = p_meta_br_flush_c_3;
 
             default:      mmio_read_byte = 8'h00;  // ports not covered are pulled down to 0
         endcase
@@ -190,10 +192,11 @@ module mmio_interface (
     // finds the lane which targetted TX_DATA
     logic tx_write_hit;
     Byte tx_write_byte;
-    Byte meta_clear_byte;
+    Byte meta_control_byte;
     always_comb begin
         tx_write_hit  = 1'b0;
         tx_write_byte = 8'h00;
+        meta_control_byte = 8'h00;
 
         if (mem_addr_0 == UART_TX_DATA) begin
             tx_write_hit  = 1'b1;
@@ -209,15 +212,15 @@ module mmio_interface (
             tx_write_byte = mem_data_write_3;
         end
 
-        if (mem_addr_0 == META_CLEAR) begin
-            meta_clear_byte = mem_data_write_0;
-        end else if (mem_addr_1 == META_CLEAR) begin
-            meta_clear_byte = mem_data_write_1;
-        end else if (mem_addr_2 == META_CLEAR) begin
-            meta_clear_byte = mem_data_write_2;
-        end else if (mem_addr_3 == META_CLEAR) begin
-            meta_clear_byte = mem_data_write_3;
-        end else 
+        if (mem_addr_0 == META_CONTROL) begin
+            meta_control_byte = mem_data_write_0;
+        end else if (mem_addr_1 == META_CONTROL) begin
+            meta_control_byte = mem_data_write_1;
+        end else if (mem_addr_2 == META_CONTROL) begin
+            meta_control_byte = mem_data_write_2;
+        end else if (mem_addr_3 == META_CONTROL) begin
+            meta_control_byte = mem_data_write_3;
+        end
     end
 
     always_ff @(posedge clk or negedge rst_n) begin  // reset values on rst_n signal
@@ -226,12 +229,12 @@ module mmio_interface (
             mmio_data_out   <= '0;
 
             uart_tx_start   <= 1'b0;
-            meta_clear      <= 1'b0;
+            p_meta_control  <= '0;
         end else begin
 
             // initialization
             uart_tx_start   <= 1'b0;
-            meta_clear      <= 1'b0;
+            p_meta_control  <= '0;
             mmio_data_ready <= mem_req_start;     // set high when mem access data ready, LSU installs
 
             if (write_enable) begin     // output function
@@ -240,7 +243,7 @@ module mmio_interface (
                         p_uart_tx_data <= tx_write_byte;
                         uart_tx_start  <= 1'b1;
                     end
-                    meta_clear <= meta_clear_byte[0];
+                    p_meta_control <= meta_control_byte;
                 end
                 mmio_data_out <= '0;
                 // writes to invalid ports are discarded

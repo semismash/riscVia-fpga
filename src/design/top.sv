@@ -35,7 +35,7 @@ module top(
     Instruction instr;
     Word read_data;
     logic if_fault;
-    logic data_fault;
+    logic mem_data_fault;
 
     rv32i_core u_cpu (
         // clock and reset
@@ -45,7 +45,7 @@ module top(
         .instr_in (instr),                  // x
         .data_in (read_data),               // x
         .if_fault (if_fault),               // x
-        .data_fault (data_fault),           // x
+        .data_fault (mem_data_fault),       // x
         .instr_valid (instr_valid),         // x
         .data_valid (data_valid),           // x
         // OUT
@@ -57,9 +57,9 @@ module top(
         .data_req_start (data_req_start),   // x
         // HALT
         .halt (halt),   // x
-        .instr_fault    (instr_fault),  // x
-        .data_fault     (data_fault),   // x
-        .illegal_instr  (illegal_instr_fault),  // x
+        .instr_fault_out    (instr_fault),  // x
+        .data_fault_out     (data_fault),   // x
+        .illegal_instr_out  (illegal_instr),  // x
         .stop (stop),   // x
         // UART
         .i_rx (i_rx),
@@ -91,7 +91,7 @@ module top(
         .data_req_start     (data_req_start),   // x
         .data_out           (read_data),        // x
         .data_valid         (data_valid),       // x
-        .data_not_found     (data_fault)        // x
+        .data_not_found     (mem_data_fault)    // x
     );
     
 endmodule

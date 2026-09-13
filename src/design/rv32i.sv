@@ -51,9 +51,9 @@ package rv32i;
     } ImmPackFmt;
 
     // memory spec
-    ROM_SIZE_BYTES  = 4096;
-    RAM_SIZE_BYTES  = 131072;
-    MMIO_OFFSET     = 2147483648; // (0x80000000)
-    MMIO_SIZE_BYTES = 2147483648;
+    localparam ROM_SIZE_BYTES  = 4096;
+    localparam RAM_SIZE_BYTES  = 131072;
+    localparam MMIO_OFFSET     = 2147483648; // (0x80000000)
+    localparam MMIO_SIZE_BYTES = 2147483648;
 
 endpackage

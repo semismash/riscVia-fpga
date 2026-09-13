@@ -42,6 +42,8 @@ module decoder #(
     // funct3
     output logic [2:0] funct3,
 
+    output logic valid_instr,
+
     // panic
     output logic illegal_instr,     // detects illegal instr, panics respectively
     output logic stop               // stop, but propagates through pipeline without emergency halt
@@ -103,6 +105,8 @@ module decoder #(
         is_branch   = 1'b0;
         is_jal      = 1'b0;
         is_jalr     = 1'b0;
+
+        valid_instr = 1'b1;
 
         imm_type = N;
         illegal_instr = 1'b0;

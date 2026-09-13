@@ -20,9 +20,9 @@ module rv32i_core (
     output logic data_req_start,    // first requests data to memory (LSU)
 
     output logic halt,          // halt on panic
-    output logic instr_fault,   // instr fetch fault
-    output logic data_fault,    // data fetch fault
-    output logic illegal_instr, // illegal instr fault
+    output logic instr_fault_out,   // instr fetch fault
+    output logic data_fault_out,    //  data fetch fault
+    output logic illegal_instr_out, // illegal instr fault
     output logic stop,          // safe halt (called by ecall or ebreak)
 
     // I/O
@@ -119,6 +119,7 @@ module rv32i_core (
     logic id_ex_reg_write;
     logic id_ex_imm_to_reg;
     logic id_ex_mem_to_reg;
+    logic id_ex_valid_instr;
 
     // alu
     AluOp alu_op;
@@ -140,6 +141,7 @@ module rv32i_core (
     logic [2:0] ex_mem_funct3;
     logic ex_mem_reg_write;
     logic ex_mem_mem_to_reg;
+    logic ex_mem_valid_instr;
 
     // lsu
     logic [2:0] funct3;
@@ -151,6 +153,7 @@ module rv32i_core (
     RegAddr mem_wb_rd_addr;
     Word mem_wb_rd_data;
     logic mem_wb_reg_write;
+    logic mem_wb_valid_instr;
 
     // forwarding unit
     logic fwd_alu_in1_ex_mem;
@@ -167,6 +170,7 @@ module rv32i_core (
 
     // meta unit
     logic meta_clear;
+    logic meta_enable;
     MetaCount meta_instr_count;
     MetaCount meta_stall_count;
     MetaCount meta_l_use_count;
@@ -283,10 +287,10 @@ module rv32i_core (
         //.pcinc_in2_doi  (pc_in2_sel), (CHECK AGAIN)
         // funct3
         .funct3         (funct3),
+        .valid_instr    (d_valid_instr),
         // panic
         .illegal_instr  (illegal_instr_fault),
-        .stop           (stop),
-        .valid_instr    (d_valid_instr)
+        .stop           (stop)
     );
 
     id_ex u_id_ex (
@@ -318,6 +322,7 @@ module rv32i_core (
         .i_reg_write      (reg_w_enable),
         .i_imm_to_reg     (imm_to_reg),
         .i_mem_to_reg     (mem_to_reg),
+        .i_valid_instr    (d_valid_instr),
         // output
         .o_opcode         (id_ex_opcode),
         .o_pc             (id_ex_pc),
@@ -340,7 +345,8 @@ module rv32i_core (
         .o_is_jalr        (id_ex_is_jalr),
         .o_reg_write      (id_ex_reg_write),
         .o_imm_to_reg     (id_ex_imm_to_reg),
-        .o_mem_to_reg     (id_ex_mem_to_reg)
+        .o_mem_to_reg     (id_ex_mem_to_reg),
+        .o_valid_instr    (id_ex_valid_instr)
     );
 
     alu u_alu(  // x
@@ -401,6 +407,7 @@ module rv32i_core (
         .i_funct3       (id_ex_funct3),
         .i_reg_write    (id_ex_reg_write),
         .i_mem_to_reg   (id_ex_mem_to_reg),
+        .i_valid_instr  (id_ex_valid_instr),
         // output
         .o_rs2_val      (ex_mem_rs2_val),
         .o_rd_addr      (ex_mem_rd_addr),
@@ -409,7 +416,8 @@ module rv32i_core (
         .o_mem_write    (ex_mem_mem_write),
         .o_funct3       (ex_mem_funct3),
         .o_reg_write    (ex_mem_reg_write),
-        .o_mem_to_reg   (ex_mem_mem_to_reg)
+        .o_mem_to_reg   (ex_mem_mem_to_reg),
+        .o_valid_instr  (ex_mem_valid_instr)
     );
 
     lsu #(  // X
@@ -459,11 +467,12 @@ module rv32i_core (
         .uart_tx_start      (uart_tx_start),
         .uart_tx_busy       (uart_tx_busy),
         // TELEMETRY UNIT
+        .meta_enable        (meta_enable),
         .meta_clear         (meta_clear),
         .meta_instr_count   (meta_instr_count),
         .meta_stall_count   (meta_stall_count),
         .meta_l_use_count   (meta_l_use_count),
-        .meta_br_flush_count(meta_br_flush_count),
+        .meta_br_flush_count(meta_br_flush_count)
     );
 
     mem_wb u_mem_wb (
@@ -476,10 +485,12 @@ module rv32i_core (
         .i_rd_addr      (ex_mem_rd_addr),
         .i_rd_data      (reg_write_data),
         .i_reg_write    (ex_mem_reg_write),
+        .i_valid_instr  (ex_mem_valid_instr),
         // output
         .o_rd_addr      (mem_wb_rd_addr),
         .o_rd_data      (mem_wb_rd_data),
-        .o_reg_write    (mem_wb_reg_write)
+        .o_reg_write    (mem_wb_reg_write),
+        .o_valid_instr  (mem_wb_valid_instr)
     );
 
     hazard_unit u_hazard_unit ( // X
@@ -528,6 +539,7 @@ module rv32i_core (
     meta u_meta (
         .clk                    (clk),
         .rst_n                  (rst_n),
+        .enable                 (meta_enable),
         .clear                  (meta_clear),
         .valid_instr            (mem_wb_valid_instr),
         .is_stall               (hz_meta_is_stall),
@@ -559,6 +571,8 @@ module rv32i_core (
     );
 
     assign halt = if_fault_out | data_fault | illegal_instr_fault;
-
+    assign instr_fault = if_fault_out;
+    assign data_fault_out = data_fault;
+    assign illegal_instr_out = illegal_instr_fault;
 
 endmodule

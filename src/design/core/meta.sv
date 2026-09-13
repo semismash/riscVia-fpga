@@ -5,6 +5,7 @@ module meta (
     input logic rst_n,
     input logic valid_instr,
     // interfacing with meta unit
+    input logic enable, // update only when enable
     input logic clear,  // syncrhonous clear
     // from hazard unit for telemetry data
     input logic is_stall,
@@ -29,10 +30,12 @@ module meta (
             l_use_count     <= '0;
             br_flush_count  <= '0;
         end else begin
-            if (valid_instr)    instr_count     <= instr_count + 1'b1;
-            if (is_stall)       stall_count     <= stall_count + 1'b1;
-            if (is_l_use)       l_use_count     <= l_use_count + 1'b1;
-            if (is_br_flush)    br_flush_count  <= br_flush_count + 2'd2;    // add 2 cycles here since flushes void 2 cycles worth of instructions
+            if (enable) begin
+                if (valid_instr)    instr_count     <= instr_count + 1'b1;
+                if (is_stall)       stall_count     <= stall_count + 1'b1;
+                if (is_l_use)       l_use_count     <= l_use_count + 1'b1;
+                if (is_br_flush)    br_flush_count  <= br_flush_count + 2'd2;    // add 2 cycles here since flushes void 2 cycles worth of instructions
+            end
         end
     end
 

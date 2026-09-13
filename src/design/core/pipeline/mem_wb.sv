@@ -1,6 +1,6 @@
 import rv32i::*;
 
-module mem_wb ( // 40 bits
+module mem_wb ( // 39 bits
     input logic clk,
     input logic rst_n,  // asynchronous active low reset
     input logic stall,
@@ -9,10 +9,12 @@ module mem_wb ( // 40 bits
     input RegAddr i_rd_addr,      // 5 bits
     input Word i_rd_data,         // 32 bits
     input logic i_reg_write,      // 1 bit
+    input logic i_valid_instr,    // 1 bit
 
     output RegAddr o_rd_addr,
     output Word o_rd_data,
-    output logic o_reg_write
+    output logic o_reg_write,
+    output logic o_valid_instr
 );
 
     always_ff @(posedge clk or negedge rst_n) begin
@@ -20,10 +22,12 @@ module mem_wb ( // 40 bits
             o_rd_addr       <= '0;
             o_rd_data       <= '0;
             o_reg_write     <= '0;
+            o_valid_instr   <= '0;
         end else if (!stall) begin  // do normal logic if NOT a stall
             o_rd_addr       <= i_rd_addr;
             o_rd_data       <= i_rd_data;
             o_reg_write     <= i_reg_write;
+            o_valid_instr   <= i_valid_instr;
         end
     end
 
