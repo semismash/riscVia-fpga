@@ -35,17 +35,17 @@ module stall_unit(
 
     always_comb begin
 
-        pc_enable = 1'b1;
-        if_id_enable = 1'b1;
-        id_ex_enable = 1'b1;
-        ex_mem_enable = 1'b1;
-        mem_wb_enable = 1'b1;
-        if_id_clear = 1'b0;
-        id_ex_clear = 1'b0;
+        pc_enable       = 1'b1;
+        if_id_enable    = 1'b1;
+        id_ex_enable    = 1'b1;
+        ex_mem_enable   = 1'b1;
+        mem_wb_enable   = 1'b1;
+        if_id_clear     = 1'b0;
+        id_ex_clear     = 1'b0;
 
-        meta_is_stall = 1'b0;
-        meta_is_l_use = 1'b0;
-        meta_branch_flush = 1'b0;
+        meta_is_stall       = 1'b0;
+        meta_is_l_use       = 1'b0;
+        meta_branch_flush   = 1'b0;
 
         is_l_use_no_gap = id_ex_mem_read && id_ex_reg_write && id_ex_rd_not_x0 &&
             ((if_id_rs1_valid && dep_id_ex_rd_if_id_rs1) || (if_id_rs2_valid && dep_id_ex_rd_if_id_rs2));

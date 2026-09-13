@@ -3,7 +3,12 @@ import rv32i::*;
 module top(
     input logic clk,    // clock
     input logic rst_n,  // active low reset
+
+    // debugging
     output logic halt,  // halt detect
+    output logic instr_fault,
+    output logic data_fault,
+    output logic illegal_instr,
     output logic stop,  // safe stop
     // CPU I/O
     input logic i_rx,
@@ -52,6 +57,9 @@ module top(
         .data_req_start (data_req_start),   // x
         // HALT
         .halt (halt),   // x
+        .instr_fault    (instr_fault),  // x
+        .data_fault     (data_fault),   // x
+        .illegal_instr  (illegal_instr_fault),  // x
         .stop (stop),   // x
         // UART
         .i_rx (i_rx),

@@ -44,8 +44,7 @@ module decoder #(
 
     // panic
     output logic illegal_instr,     // detects illegal instr, panics respectively
-    output logic stop,              // stop, but propagates through pipeline without emergency halt
-    output logic valid_instr        // metadata bit to increment the instruction counter at the end of the CPU, helping with CPI measurement
+    output logic stop               // stop, but propagates through pipeline without emergency halt
 );
 
     import rv32i::*;
@@ -108,7 +107,6 @@ module decoder #(
         imm_type = N;
         illegal_instr = 1'b0;
         stop = 1'b0;
-        valid_instr = 1'b1;
 
         case (opcode)
             OP_R: begin
@@ -174,14 +172,6 @@ module decoder #(
                 reg_write = 1'b1; 
                 alu_in1_ropc = 1'b1;
                 imm_type = U;
-            end
-            OP_NOP: begin 
-                valid_instr = 1'b0;
-            end // ignore if NOP, i.e. first 7 bits from LSB are 0
-            OP_STOP: begin
-                alu_bypass = 1'b1;
-                stop = 1'b1;
-                valid_instr = 1'b0;
             end
             default: begin 
                 illegal_instr = 1'b1;
