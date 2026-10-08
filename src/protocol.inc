@@ -1,0 +1,73 @@
+# TO BIOS
+# MESSAGES
+.equ TB_MSG_CANCEL  0x3B
+.equ TB_MSG_ECHO    0x3D
+.equ TB_MSG_FINISH  0x3F
+# SELF TEST
+.equ TB_ST_INIT     0x5A
+# TELEMETRY
+.equ TB_META_START  0x7A
+.equ TB_META_CNTTR  0x70
+.equ TB_META_INRST  0x71
+.equ TB_META_PRGTR  0x72
+.equ TB_META_PGRST  0x73
+# MEMORY
+.equ TB_MEM_DUMP    0x8A
+.equ TB_MEM_OFSADR  0x80
+.equ TB_MEM_DUMPSZ  0x81
+# CONNECTION
+.equ TB_NET_SYN     0xAA
+.equ TB_NET_ACK     0xAC
+# PROGRAM RUNTIME
+.equ TB_PRG_OFSADR  0xC0
+.equ TB_PRG_SZ      0xC1
+.equ TB_PRG_LOAD    0xCA
+.equ TB_PRG_CC      0xCC
+# DEVICE DATA
+.equ TB_DD_DATA     0xDA
+
+# FROM BIOS
+.equ FB_MSG_DISP    0x3D
+.equ FB_MSG_FLSH    0x3F
+# SELF TEST
+.equ FB_ST_PASS     0x5C
+.equ FB_ST_FAIL     0x5E
+.equ FB_ST_FINISH   0x5F
+# TELEMETRY
+.equ FB_META_START  0x7A
+.equ FB_META_REGDP  0x70
+.equ FB_META_PARAM  0x71
+    .equ META_PARAM_CLKCYC  0x00
+    .equ META_PARAM_INSCNT  0x01
+    .equ META_PARAM_STLCNT  0x02
+    .equ META_PARAM_LSECNT  0x03
+    .equ META_PARAM_BRFCNT  0x04
+.equ FB_META_FNSH   0x7F
+# MEMORY
+.equ FB_MEM_DUMP    0x8A
+# CONNECTION
+.equ FB_NET_SYNACK  0xAB
+# PROGRAM RUNTIME
+.equ FB_PRG_ATTMPT  0xCA
+.equ FB_PRG_SCCESS  0xCC
+# DEVICE DATA
+.equ FB_DD_DISP     0xDA
+.equ FB_DD_PARAM    0xD1
+    .equ DD_PARAM_ARCH      0x00
+    .equ DD_PARAM_REGCNT    0x01
+    .equ DD_PARAM_RAMSZ     0x02
+    .equ DD_PARAM_ROMSZ     0x03
+    .equ DD_PARAM_CLKSPD    0x04
+    .equ DD_PARAM_BAUDTK    0x05
+# BIOS STATE MONITORING
+.equ FB_BIOSST_UPDT 0xF0
+    .equ BIOSST_IDLE    0x00
+    .equ BIOSST_MSG     0x03
+    .equ BIOSST_ST      0x05
+    .equ BIOSST_META    0x07
+    .equ BIOSST_MEM     0x08
+    .equ BIOSST_NET     0x0A
+    .equ BIOSST_PGLD    0x0C
+    .equ BIOSST_PGEX    0x1C
+    .equ BIOSST_DD      0x0D
+    .equ BIOSST_ERR     0xEE

@@ -1,7 +1,5 @@
 # BIOS Functionality
 
-*(Disclaimer: A lot of these notes were generated with the help of Claude. However, the underlying documentation has been completely planned out by the author of the project.)*
-
 ## INPUT/INTERNAL
 
 ### 1. Connection
@@ -61,11 +59,10 @@ Options to be able to be configured:
 ## OUTPUT
 
 ### 1. Message Display
-> Sends display message to the device for printing. Uses length-prefixed framing rather than per-character delimiting.
+> Sends display message to the device for printing. Uses length-prefixed framing exclusively (no per-character mode).
 
 **Algorithm:**
-- For a single character: sends `0x3C` followed by one ASCII byte.
-- For a string/message: sends `0x3D` (message start), followed by 1 byte indicating the message length (`N`), followed by `N` ASCII bytes, followed by `0x3F` (flush) to mark the message as complete.
+- Sends `0x3D` (message start), followed by 1 byte indicating the message length (`N`), followed by `N` ASCII bytes, followed by `0x3F` (flush) to mark the message as complete.
 - Sending `0x3B` at any point before the `N`th byte cancels the transmission and clears the buffer.
 
 > This is more of a user-side thing, as any program in the CPU which uses this byte sequence will be able to print messages to the console.
@@ -94,7 +91,7 @@ Options to be able to be configured:
 
 | Range | Meaning |
 |---|---|
-| `0x3X` | Character & String |
+| `0x3X` | Message/String Transmission |
 | `0x5X` | CPU Self-Test |
 | `0x7X` | Telemetry Data |
 | `0x8X` | Memory Interfacing |
@@ -109,7 +106,6 @@ Options to be able to be configured:
 ### Input (to BIOS)
 
 - `0x3B` - Cancel Transmission
-- `0x3C` - Character Indicator
 - `0x3D` - Echo command (message start)
 - `0x3F` - Message Finish
 - `0x5A` - Self-Test
@@ -131,7 +127,6 @@ Options to be able to be configured:
 
 ### Output (from BIOS)
 
-- `0x3C` - Character Indicator
 - `0x3D` - Message Display
 - `0x3F` - Flush message (transmission finish)
 - `0x5C` - Self-test passed
@@ -168,7 +163,7 @@ Options to be able to be configured:
     - `0x0C` - Program Load
     - `0x1C` - Program Execution
     - `0x0D` - Device Data Display
-    - `0xEE` - BIOS Hanged
+    - `0xEE` - BIOS Crashed
 
 ### Error Codes (from: BIOS)
 
