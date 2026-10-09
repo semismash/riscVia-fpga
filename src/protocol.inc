@@ -1,7 +1,7 @@
 # TO BIOS
 # MESSAGES
+.equ TB_MSG_ECHO    0x3A
 .equ TB_MSG_CANCEL  0x3B
-.equ TB_MSG_ECHO    0x3D
 .equ TB_MSG_FINISH  0x3F
 # SELF TEST
 .equ TB_ST_INIT     0x5A
@@ -25,6 +25,8 @@
 .equ TB_PRG_CC      0xCC
 # DEVICE DATA
 .equ TB_DD_DATA     0xDA
+# BIOS DATA MONITORING
+.equ TB_BIOS_DATA   0xFA
 
 # FROM BIOS
 .equ FB_MSG_DISP    0x3D
