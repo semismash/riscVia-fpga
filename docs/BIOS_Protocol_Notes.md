@@ -163,7 +163,7 @@ Options to be able to be configured:
     - `0x0C` - Program Load
     - `0x1C` - Program Execution
     - `0x0D` - Device Data Display
-    - `0xEE` - BIOS Crashed
+    - `0xEE` - BIOS Timeout
 
 ### Error Codes (from: BIOS)
 
