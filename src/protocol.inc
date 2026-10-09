@@ -72,3 +72,5 @@
     .equ BIOSST_PGEX    0x1C
     .equ BIOSST_DD      0x0D
     .equ BIOSST_ERR     0xEE
+
+# BIOS ERRORS (INTERNAL AND EXTERNAL)
