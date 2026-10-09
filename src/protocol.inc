@@ -74,3 +74,11 @@
     .equ BIOSST_ERR     0xEE
 
 # BIOS ERRORS (INTERNAL AND EXTERNAL)
+.equ ERR_MESSAGE        0xE3
+    .equ ERR_MSG_TOO_BIG    0x01
+.equ ERR_SELF_TEST      0xE5
+.equ ERR_TELEMETRY      0xE7
+.equ ERR_MEMORY         0xE8
+.equ ERR_CONNNECT       0xEA
+.equ ERR_PROGRAM        0xEC
+.equ ERR_DEVICE_DATA    0xED   

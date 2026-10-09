@@ -68,19 +68,19 @@ idle:
     mv      t0, a0                  # move result to t0 scratch reg
     
     # conditional switch table for all different intiialization bytes
-    addi    t1, x0, TB_MSG_ECHO     # check msg echo byte
+    li      t1, TB_MSG_ECHO         # check msg echo byte
     beq     t0, t1, msg_echo
-    addi    t1, x0, TB_ST_INIT      # check self test init
+    li      t1, TB_ST_INIT          # check self test init
     beq     t0, t1, self_test
-    addi    t1, x0, TB_META_START   # check telemetry display innit
+    li      t1, TB_META_START       # check telemetry display innit
     beq     t0, t1, telemetry
-    addi    t1, x0, TB_MEM_DUMP     # memory dump
+    li      t1, TB_MEM_DUMP         # memory dump
     beq     t0, t1, memory
-    addi    t1, x0, TB_NET_ACK      # connection attempt
+    li      t1, TB_NET_ACK          # connection attempt
     beq     t0, t1, connect
-    addi    t1, x0, TB_DD_DATA      # check device data request
+    li      t1, TB_DD_DATA          # check device data request
     beq     t0, t1, device_data
-    addi    t1, x0, TB_BIOS_DATA    # check if BIOS data monitoring is turned on
+    li      t1, TB_BIOS_DATA        # check if BIOS data monitoring is turned on
     beq     t0, t1, bios_log
 
     j       idle                    # loop around if no valid command bytes, no error 
@@ -88,8 +88,11 @@ idle:
 msg_echo:
     call    push_addr       # push address to stack
     call    get_size        # fetch size of message
+    li      a1, program_top # store string starting from program top
     call    push_addr       # push address to stack again
-    call    gets            # get input string of byte size            
+    call    gets            # get input string of byte size
+    call    push_addr       # push address to stack again
+    call    puts            # print string via uart using puts
 
 self_test:
 
@@ -152,22 +155,39 @@ get_size:   # little endian 4 byte size
     ret
 
 gets:
-    li      t0, program_top         # go to start of BIOS data space
-    mv      t1, a0                  # program size  
-    addi    t2, x0, bios_mem_size   # bios mem size (4032) for data
-    bge     t1, t2, 2b              # if message size too high, automatically raise error
+    li      t0, a1                      # go to offset stored in a1
+    mv      t1, a0                      # string size  
+    li      t2, bios_mem_size           # bios mem size (4032) for data
+    li      t3, x0, program_stack_top   # bios data starting addr
+    sub     t3, t0, t3                  # t3 is the adjusted offset ptr to bios start 
+    blt     t3, x0, 3f                  # ensure adjusted ptr is positive (not supposed to be negative ideally, otherwise it flows into program space)
+    sub     t2, t2, t3                  # t2 = remaining permissible size for message
+    bge     t1, t2, 2f                  # if message size too high, automatically raise error
 1:
     call    uart_rx
-    sb      a0, 0(t0)       # store pointer
+    sb      a0, 0(t0)       # store to pointer
+    addi    t0, t0, 1       # incrememnt pointer
+    addi    t1, t1, -1      # decrement counter
+    bnez    t1, 1b          # loop as long as counter is not zero
+    call    pop_addr
+    ret
 2:
-    li
+    li      a0, ERR_MESSAGE         # load a0 for error handler type indicator
+    li      a1, ERR_MSG_TOO_BIG     # load a1 for error handler exact type
     j       error_handler
+3:  
+    j       critical_error          # critical error occurs, caused by hardcodede error in BIOS
 
 puts:
+    li      t0, a1                  # go to offset stored in a1
+
 
 
 # HANDLERS
 timeout_handler:    # uses a5 for checking operation
 
 error_handler:
-
+    call    uart_tx     # call tx with error type in a0
+    mv      a0, a1      # move a1 (error code) to a0 for calling tx agagin
+    call    uart_tx     # call tx with error code, now in a0
+    j       idle        # jump back to idle state after error handling
