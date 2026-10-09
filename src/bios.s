@@ -155,14 +155,11 @@ get_size:   # little endian 4 byte size
     ret
 
 gets:
-    li      t0, a1                      # go to offset stored in a1
-    mv      t1, a0                      # string size  
-    li      t2, bios_mem_size           # bios mem size (4032) for data
-    li      t3, x0, program_stack_top   # bios data starting addr
-    sub     t3, t0, t3                  # t3 is the adjusted offset ptr to bios start 
-    blt     t3, x0, 3f                  # ensure adjusted ptr is positive (not supposed to be negative ideally, otherwise it flows into program space)
-    sub     t2, t2, t3                  # t2 = remaining permissible size for message
-    bge     t1, t2, 2f                  # if message size too high, automatically raise error
+    mv      t0, a1          # go to offset stored in a1
+    mv      t1, a0          # string size  
+    call    push_addr
+    call    check_msg_size
+    beqz    a0, 2f          # if message size too high, respective error  
 1:
     call    uart_rx
     sb      a0, 0(t0)       # store to pointer
@@ -172,15 +169,25 @@ gets:
     call    pop_addr
     ret
 2:
-    li      a0, ERR_MESSAGE         # load a0 for error handler type indicator
-    li      a1, ERR_MSG_TOO_BIG     # load a1 for error handler exact type
+    li      a0, ERR_MESSAGE             # load a0 for error handler type indicator
+    li      a1, ERR_GET_MSG_TOO_BIG     # load a1 for error handler exact type
     j       error_handler
-3:  
-    j       critical_error          # critical error occurs, caused by hardcodede error in BIOS
 
 puts:
-    li      t0, a1                  # go to offset stored in a1
+    mv      t0, a1                  # go to offset stored in a1
+    mv      t1, a0                  # string size
 
+check_msg_size:
+    li      t2, bios_mem_size           # bios mem size (4032) for data
+    li      t3, x0, program_stack_top   # bios data starting addr
+    sub     t3, t0, t3                  # t3 is the adjusted offset ptr to bios start 
+    blt     t3, x0, 1f                  # ensure adjusted ptr is positive (not supposed to be negative ideally, otherwise it flows into program space)
+    sub     t2, t2, t3                  # t2 = remaining permissible size for message
+    slt     a0, t1, t2                  # if message size too high, return result as 0, else return as 1
+    call    pop_addr
+    ret
+1:
+    j       critical_error          # critical error occurs, caused by hardcodede error in BIOS
 
 
 # HANDLERS
@@ -191,3 +198,8 @@ error_handler:
     mv      a0, a1      # move a1 (error code) to a0 for calling tx agagin
     call    uart_tx     # call tx with error code, now in a0
     j       idle        # jump back to idle state after error handling
+
+critical_error:
+    li      a0, 0xEE    # load 0xEE for ciritcal error transmission to master device
+    call    uart_tx
+    j reset
