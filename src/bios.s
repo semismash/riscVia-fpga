@@ -166,16 +166,41 @@ gets:
     addi    t0, t0, 1       # incrememnt pointer
     addi    t1, t1, -1      # decrement counter
     bnez    t1, 1b          # loop as long as counter is not zero
+
+    call    uart_rx
+    li      t0, TB_MSG_FINISH
+    bne     a0, t0, 3f      # check if final byte is flush to verify transmission, if not, then jump
     call    pop_addr
     ret
 2:
     li      a0, ERR_MESSAGE             # load a0 for error handler type indicator
     li      a1, ERR_GET_MSG_TOO_BIG     # load a1 for error handler exact type
     j       error_handler
+3: 
+    li      a0, ERR_MESSAGE
+    li      a1, ERR_GET_MSG_UNVERIFIED  # unverified get message
+    j       error_handler
 
 puts:
-    mv      t0, a1                  # go to offset stored in a1
-    mv      t1, a0                  # string size
+    mv      t0, a1          # go to offset stored in a1
+    mv      t1, a0          # string size
+    call    push_addr
+    call    check_msg_size
+    beqz    a0, 2f          # if message size is too high, raise error
+1:
+    lb      a0, 0(t0)       # load byte from pointer to register
+    call    uart_tx         # send via tx
+    addi    t0, t0, 1       # increment pointer
+    addi    t1, t1, -1      # decrement counter
+    bnez    t1, 1b          # loop as long as counter is not zero
+    li      a0, FB_MSG_FLSH
+    call    uart_tx         # transmit flush message for verification towards the end
+    call    pop_addr
+    ret
+2:
+    li      a0, ERR_MESSAGE
+    li      a1, ERR_OUT_MSG_TOO_BIG
+    j       error_handler
 
 check_msg_size:
     li      t2, bios_mem_size           # bios mem size (4032) for data
