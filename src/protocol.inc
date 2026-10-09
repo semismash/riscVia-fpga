@@ -1,7 +1,6 @@
 # TO BIOS
 # MESSAGES
 .equ TB_MSG_ECHO    0x3A
-.equ TB_MSG_CANCEL  0x3B
 .equ TB_MSG_FINISH  0x3F
 # SELF TEST
 .equ TB_ST_INIT     0x5A

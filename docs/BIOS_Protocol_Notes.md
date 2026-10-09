@@ -63,7 +63,6 @@ Options to be able to be configured:
 
 **Algorithm:**
 - Sends `0x3A` (message start), followed by 1 byte indicating the message length (`N`), followed by `N` ASCII bytes, followed by `0x3F` (flush) to mark the message as complete.
-- Sending `0x3B` at any point before the `N`th byte cancels the transmission and clears the buffer.
 
 > This is more of a user-side thing, as any program in the CPU which uses this byte sequence will be able to print messages to the console.
 >
@@ -106,7 +105,6 @@ Options to be able to be configured:
 ### Input (to BIOS)
 
 - `0x3A` - Echo command (message start)
-- `0x3B` - Cancel Transmission
 - `0x3F` - Message Finish
 - `0x5A` - Self-Test
 - `0x7A` - Telemetry Data
