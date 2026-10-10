@@ -1,5 +1,5 @@
 # BIOS specific constant declarations
-.equ MAX_TIMEOUT_CYCLE, 0x4000000                   # 67 million cycle safety window
+.equ DEFAULT_TIMEOUT_CYCLE, 0x4000000                   # 67 million cycle safety window (6.7s at 10MHz)
 .equ UART_STATUS,       0x80000000                  # 0x8000_0000
 .equ UART_RXD_OFFSET,   0x4                         # 0x8000_0004
 .equ UART_TXD_OFFSET,   0x8                         # 0x8000_0008
@@ -19,6 +19,9 @@
 # a5 - BIOS state
 # t0-t6 - temporary function-specific variables
 # s0-s11 - global/high-lifetime variables
+    # s1 - UART status
+    # s2 - UART RX DATA
+    # s3 - UART TX DATA
 
 # MEMORY LAYOUT:
 # 0x00000000 - 0x00000FFF: BIOS ROM
@@ -65,6 +68,10 @@ dd_clk:     # configured clock speed
 dd_baud:    # configured UART baud tick rate
     .word   9600        # MHz
 
+# Other
+connection_timeout:
+    .word   0x8F00000   # ~150 million cycles (~15 seconds delayed @ 10MHz)
+
 .section .text
 
 _start:
@@ -77,6 +84,7 @@ reset:
     addi    s3, s1, UART_TXD_OFFSET     # s3 - UART TX DATA
 
     la      sp, bios_stack_top      # initialize stack
+    addi    a4, x0, 0               # clear a4 register to prevent interference with UART rx timer (see uart_rx: label below)
 
 idle:
     call    uart_rx                 # call uart rx in idle to receive command
@@ -116,9 +124,9 @@ telemetry:
 memory:
 
 connect:
+    
 
-
-device_data:
+device_data: 
 
 bios_log:
 
@@ -137,7 +145,9 @@ pop_addr:
     jr      t0              # jump to the previous ra value (return from original function call)
 
 uart_rx:    # UART polling loops (no interrupts yet :/)
-    li      t1, MAX_TIMEOUT_CYCLE
+    li      t1, DEFAULT_TIMEOUT_CYCLE
+    beqz    a4, 1f          # a4 is custom timeout parameter, if its already zeroed out, then use default (jump to 1 directly)
+    li      t1, a4          # load custom timeout if doesn't skip
 1:
     lbu     t0, 0(s1)       # load UART status byte
     addi    t1, t1, -1      # decrement timeout checker
@@ -152,7 +162,7 @@ uart_tx:    # NOTE: no need for safety checker here, as its BIOS side, cannot ti
     lbu     t0, 0(s1)       # load UART status byte
     andi    t0, t0, 0x02    # mask only bit 2 (TX BUSY)
     bnez    t0, 1b          # wait till valid (until tx_busy != 1)
-    sb      a2, 0(s3)       # send data via UART channel once no longer busy
+    sb      a0, 0(s3)       # send data via UART channel once no longer busy
     ret
 
 # BIOS Functions
