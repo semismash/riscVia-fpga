@@ -71,7 +71,7 @@
     .equ BIOSST_PGLD    0x0C
     .equ BIOSST_PGEX    0x1C
     .equ BIOSST_DD      0x0D
-    .equ BIOSST_ERR     0xEE
+    .equ BIOSST_ERR     0x0E
 
 # BIOS ERRORS (INTERNAL AND EXTERNAL)
 .equ ERR_MESSAGE        0xE3
@@ -82,5 +82,10 @@
 .equ ERR_TELEMETRY      0xE7
 .equ ERR_MEMORY         0xE8
 .equ ERR_CONNNECT       0xEA
+    .equ ERR_CONNECTION_INVALID 0x01
+    .equ ERR_CONNECTION_TIMEOUT 0x02
 .equ ERR_PROGRAM        0xEC
-.equ ERR_DEVICE_DATA    0xED   
+.equ ERR_DEVICE_DATA    0xED
+.equ ERR_CRITICAL       0xEE   
+.equ ERR_BIOS           0xEF
+    .equ ERR_BIOS_TIMEOUT       0x01

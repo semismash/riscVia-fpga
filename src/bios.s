@@ -15,13 +15,19 @@
 # REGISTER USAGE:
 # a0 - callee return value 1
 # a1 - callee return value 2
-# a0-a4 - function arguments
-# a5 - BIOS state
+# a0-a7 - function arguments
+    # a4 - UART timeout custom
+    # a5 - Timeout handler (0 = default, 1 = connection)
+    # a6 - BIOS state update
 # t0-t6 - temporary function-specific variables
 # s0-s11 - global/high-lifetime variables
     # s1 - UART status
     # s2 - UART RX DATA
     # s3 - UART TX DATA
+    # s10 - BIOS Status Register
+        # [7:0]: BIOS Status Byte
+        # [8]: BIOS Connection Valid
+        # [9]: BIOS Status Flush
 
 # MEMORY LAYOUT:
 # 0x00000000 - 0x00000FFF: BIOS ROM
@@ -87,6 +93,10 @@ reset:
     addi    a4, x0, 0               # clear a4 register to prevent interference with UART rx timer (see uart_rx: label below)
 
 idle:
+    li      a5, 0x00
+    call    push_addr
+    call    update_state            # update state to idle
+
     call    uart_rx                 # call uart rx in idle to receive command
     mv      t0, a0                  # move result to t0 scratch reg
     
@@ -109,6 +119,9 @@ idle:
     j       idle                    # loop around if no valid command bytes, no error 
 
 msg_echo:
+    call    push_addr
+    call    update_state    # update state
+    
     call    push_addr       # push address to stack
     call    get_size        # fetch size of message
     li      a1, program_top # store string starting from program top
@@ -116,6 +129,8 @@ msg_echo:
     call    gets            # get input string of byte size
     call    push_addr       # push address to stack again
     call    puts            # print string via uart using puts
+    
+    j       idle            // slash slash comment cuz funny
 
 self_test:
 
@@ -124,7 +139,14 @@ telemetry:
 memory:
 
 connect:
-    
+    li      a0, FB_NET_SYNACK   # send back SYN-ACK byte to verify connection
+    call    uart_tx
+    li      a4, connection_timeout
+    li      a5, 1
+    call    uart_rx         # verify ACK byte
+    li      t0, TB_NET_ACK
+    beq     a0, t0, 
+    j       idle
 
 device_data: 
 
@@ -155,6 +177,7 @@ uart_rx:    # UART polling loops (no interrupts yet :/)
     andi    t0, t0, 0x01    # mask only bit 1 (RX VALID)
     beqz    t0, 1b          # loop back while uart status is 0 (not yet valid)
     lbu     a0, 0(s2)       # load data byte once status is nonzero (valid byte ready)
+    addi    a4, x0, 0       # clear a4 to default value again, a4 must be explicitly set when its to be called
     ret
 
 uart_tx:    # NOTE: no need for safety checker here, as its BIOS side, cannot timeout ideally
@@ -166,6 +189,21 @@ uart_tx:    # NOTE: no need for safety checker here, as its BIOS side, cannot ti
     ret
 
 # BIOS Functions
+
+update_state:
+    andi    a6, a6, 0xFF    # mask out lower byte of status update, in case
+    andi    s10, s10, 0xFF  # clear lower bytes of status register
+    or      s10, s0, a6     # load lower byte of a6 into s10 to update status
+    andi    t1, s10, 0x200  # mask out 9th bit (status flush)
+    beqz    t1, 1f          # if zero, then skip status flushing directly and return
+    mv      t1, a0          # save existing return value (prevent return value loss from before)
+    li      a0, FB_BIOSST_UPDT
+    call    uart_tx         # update push update bios state
+    mv      a0, a6          # push updated state as byte
+    call    uart_tx       
+1:
+    call    pop_addr
+    ret
 
 get_size:   # little endian 4 byte size
     addi    t0, x0, 4       # loop 4 times for 4 bytes
@@ -246,7 +284,26 @@ check_msg_size:
 
 
 # HANDLERS
-timeout_handler:    # uses a5 for checking operation
+timeout_handler:    # uses a5 for checking handler type
+    beqz    a5, 1f                              # if zero, use default handler
+    addi    t1, a5, -1                          # check for if 1
+    beqz    t1, connection_timeout_handler      # if 1, use connection timeout handler
+    j       critical_error                      # must match a handler, critical error otherwise
+1:
+    li      a0, ERR_BIOS                # bios timeout error type
+    call    uart_tx
+    li      a0, ERR_BIOS_TIMEOUT        # bios timeout error code
+    call    uart_tx
+    j       idle
+# ^^^ DEVELOPERS NOTE: this current implementation is used as there are no RX/TX FIFOs that allow staging multiple bytes at once
+# said feature will be added in the near future as an upgrade
+
+connection_timeout_handler:     # specifically for connection timeout
+    li      a0, ERR_BIOS        # error type
+    call    uart_tx
+    li      a0, ERR_CONNNECT    # error code
+    call    uart_tx
+    j       idle
 
 error_handler:
     call    uart_tx     # call tx with error type in a0
@@ -254,7 +311,7 @@ error_handler:
     call    uart_tx     # call tx with error code, now in a0
     j       idle        # jump back to idle state after error handling
 
-critical_error:
-    li      a0, 0xEE    # load 0xEE for ciritcal error transmission to master device
+critical_error:     # generally meant for BIOS-side errors
+    li      a0, ERR_CRITICAL    # load 0xEE for ciritcal error transmission to master device
     call    uart_tx
     j reset
