@@ -82,6 +82,12 @@ connection_timeout:
 
 _start:
 
+# ---------- DEVELOPER'S NOTE ----------
+# the push_addr stack utility command is currently being used in a lot of places for utility, specifically for nested loops
+# however there is a consideration of removing the command from many unnecessary places to improve performance and code density
+# this is more of a developer specific reminder, but also one for those who see the codebase in this current commit
+# --------------------------------------
+
 # BIOS UTILITY
 reset:
     # initialize BIOS constants (UART mainly)
@@ -93,7 +99,7 @@ reset:
     addi    a4, x0, 0               # clear a4 register to prevent interference with UART rx timer (see uart_rx: label below)
 
 idle:
-    li      a5, 0x00
+    li      a5, BIOSST_IDLE
     call    push_addr
     call    update_state            # update state to idle
 
@@ -119,6 +125,7 @@ idle:
     j       idle                    # loop around if no valid command bytes, no error 
 
 msg_echo:
+    li      a6, BIOSST_MSG
     call    push_addr
     call    update_state    # update state
     
@@ -139,14 +146,24 @@ telemetry:
 memory:
 
 connect:
+    li      a6, BIOSST_NET
+    call    push_addr
+    call    update_state        # update state
+
     li      a0, FB_NET_SYNACK   # send back SYN-ACK byte to verify connection
     call    uart_tx
     li      a4, connection_timeout
     li      a5, 1
-    call    uart_rx         # verify ACK byte
+    call    uart_rx             # verify ACK byte
     li      t0, TB_NET_ACK
-    beq     a0, t0, 
+    bne     a0, t0, 1f          # if ACK is verified, connect successfully and update status, otherwise, jump to error_handler
+    ori     s10, s10, 0x00000100     # set connection bit to 1
     j       idle
+1:
+    andi    s10, s10, 0xFFFFFEFF     # set connection bit (8th bit) to 0
+    li      a0, ERR_CONNNECT
+    li      a1, ERR_CONNECTION_INVALID
+    j       error_handler
 
 device_data: 
 
@@ -194,7 +211,7 @@ update_state:
     andi    a6, a6, 0xFF    # mask out lower byte of status update, in case
     andi    s10, s10, 0xFF  # clear lower bytes of status register
     or      s10, s0, a6     # load lower byte of a6 into s10 to update status
-    andi    t1, s10, 0x200  # mask out 9th bit (status flush)
+    andi    t1, s10, 0x00000200     # mask out 9th bit (status flush)
     beqz    t1, 1f          # if zero, then skip status flushing directly and return
     mv      t1, a0          # save existing return value (prevent return value loss from before)
     li      a0, FB_BIOSST_UPDT
