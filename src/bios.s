@@ -31,9 +31,11 @@
 .section .rodata
 .align 2
 
+# BIOS Messages
 bios_start_msg:
     .string "BIOS Loaded Successfully!"
 
+# Memory Layouts
 program_start:      # 0x1000
     .word   PROGRAM_START
 ram_size:           # 0x20000
@@ -46,9 +48,22 @@ bios_stack_top:     # 0x21000
     .word   RAM_TOP
 program_stack_top:  # 0x20000
     .word   PROGRAM_TOP
-
+bios_data_top:      # 0x20FC0
+    .word   RAM_TOP - BIOS_STACK_SIZE
 bios_mem_size:
-    .word   RAM_TOP - PROGRAM_TOP - BIOS_STACK_SIZE
+    .word   RAM_TOP - BIOS_STACK_SIZE - PROGRAM_TOP
+
+# Device Data
+dd_name:    # device bios name
+    .string "Zenith Core BIOS v.1.0"
+dd_arch:    # device arch
+    .string "RISC-V | RV32I | 32-bit"
+dd_regc:    # GPR count
+    .word   32
+dd_clk:     # configured clock speed
+    .word   10000000    # MHz
+dd_baud:    # configured UART baud tick rate
+    .word   9600        # MHz
 
 .section .text
 
@@ -102,6 +117,7 @@ memory:
 
 connect:
 
+
 device_data:
 
 bios_log:
@@ -139,6 +155,8 @@ uart_tx:    # NOTE: no need for safety checker here, as its BIOS side, cannot ti
     sb      a2, 0(s3)       # send data via UART channel once no longer busy
     ret
 
+# BIOS Functions
+
 get_size:   # little endian 4 byte size
     addi    t0, x0, 4       # loop 4 times for 4 bytes
     addi    t1, x0, 0       # initialize shift counter to 0 bits
@@ -155,11 +173,13 @@ get_size:   # little endian 4 byte size
     ret
 
 gets:
-    mv      t0, a1          # go to offset stored in a1
-    mv      t1, a0          # string size  
+    mv      s4, a0          # string size 
+    mv      s5, a1          # go to offset stored in a1
     call    push_addr
     call    check_msg_size
     beqz    a0, 2f          # if message size too high, respective error  
+    mv      t1, s4          # move size into t1
+    mv      t0, s5          # move pointer into t0
 1:
     call    uart_rx
     sb      a0, 0(t0)       # store to pointer
@@ -182,11 +202,13 @@ gets:
     j       error_handler
 
 puts:
-    mv      t0, a1          # go to offset stored in a1
-    mv      t1, a0          # string size
+    mv      s4, a0          # string size 
+    mv      s5, a1          # go to offset stored in a1
     call    push_addr
     call    check_msg_size
     beqz    a0, 2f          # if message size is too high, raise error
+    mv      t1, s4          # move size into t1
+    mv      t0, s5          # move pointer into t0
 1:
     lb      a0, 0(t0)       # load byte from pointer to register
     call    uart_tx         # send via tx
@@ -203,16 +225,14 @@ puts:
     j       error_handler
 
 check_msg_size:
-    li      t2, bios_mem_size           # bios mem size (4032) for data
-    li      t3, x0, program_stack_top   # bios data starting addr
-    sub     t3, t0, t3                  # t3 is the adjusted offset ptr to bios start 
-    blt     t3, x0, 1f                  # ensure adjusted ptr is positive (not supposed to be negative ideally, otherwise it flows into program space)
-    sub     t2, t2, t3                  # t2 = remaining permissible size for message
-    slt     a0, t1, t2                  # if message size too high, return result as 0, else return as 1
+    li      t0, bios_data_top           # top address for BIOS data (end of stack)
+    sub     t1, t0, a1                  # subtract offset pointer address from top address to get remaining size
+    bltz    t1, 1f                      # ensure that pointer is not greater than max allowed address
+    slt     a0, a0, t1                  # (compare addresses) if message size too high, return result as 0 (fail), else return as 1
     call    pop_addr
     ret
 1:
-    j       critical_error          # critical error occurs, caused by hardcodede error in BIOS
+    j       critical_error              # critical error raised if offset is higher than allocated memory top
 
 
 # HANDLERS
